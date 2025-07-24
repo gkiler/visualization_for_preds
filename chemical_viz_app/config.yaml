@@ -40,6 +40,11 @@ colors:
     reaction: "#FF9800"
     pathway: "#9C27B0"
     default: "#757575"
+  
+  # Default library_SMILES-based coloring (applied when no explicit coloring is set)
+  library_smiles_default:
+    contains_oxygen: "#4CAF50"  # Green for SMILES containing 'O'
+    no_oxygen: "#9E9E9E"        # Grey for SMILES not containing 'O'
     
   edge_types:
     interaction: "#666666"

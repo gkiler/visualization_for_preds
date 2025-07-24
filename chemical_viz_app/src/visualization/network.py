@@ -44,7 +44,8 @@ class NetworkVisualizer:
         net: Network, 
         nodes: List[ChemicalNode],
         node_colors: Optional[Dict[str, str]] = None,
-        node_sizes: Optional[Dict[str, float]] = None
+        node_sizes: Optional[Dict[str, float]] = None,
+        node_label_column: str = 'label'
     ) -> None:
         default_colors = self.config["colors"]["node_categories"]
         default_node_config = self.config["visualization"]["node_defaults"]
@@ -55,10 +56,13 @@ class NetworkVisualizer:
                 if node_colors and node.id in node_colors:
                     color = node_colors[node.id]
                 else:
-                    color = default_colors.get(
-                        node.node_type.value, 
-                        default_colors["default"]
-                    )
+                    # Apply default library_SMILES coloring if available
+                    color = self._get_default_library_smiles_color(node)
+                    if not color:
+                        color = default_colors.get(
+                            node.node_type.value, 
+                            default_colors["default"]
+                        )
             
             size = node.size
             if not size:
@@ -67,14 +71,24 @@ class NetworkVisualizer:
                 else:
                     size = default_node_config["size"]
             
-            title = f"<b>{node.label}</b><br>"
+            # Get the display label based on selected column
+            if node_label_column == 'id':
+                display_label = node.id
+            elif node_label_column == 'label':
+                display_label = node.label
+            elif node_label_column in node.properties:
+                display_label = str(node.properties[node_label_column]) if node.properties[node_label_column] is not None else ""
+            else:
+                display_label = node.label  # Fallback to default label
+            
+            title = f"<b>{display_label}</b><br>"
             title += f"Type: {node.node_type.value}<br>"
             for key, value in node.properties.items():
                 title += f"{key}: {value}<br>"
             
             net.add_node(
                 node.id,
-                label=node.label,
+                label=display_label,
                 color=color,
                 size=size,
                 title=title,
@@ -88,7 +102,9 @@ class NetworkVisualizer:
         net: Network, 
         edges: List[ChemicalEdge],
         edge_colors: Optional[Dict[Tuple[str, str], str]] = None,
-        edge_widths: Optional[Dict[Tuple[str, str], float]] = None
+        edge_widths: Optional[Dict[Tuple[str, str], float]] = None,
+        show_edge_labels: bool = False,
+        edge_label_column: str = 'type'
     ) -> None:
         default_colors = self.config["colors"]["edge_types"]
         default_edge_config = self.config["visualization"]["edge_defaults"]
@@ -139,6 +155,23 @@ class NetworkVisualizer:
             if "modifinder" in edge.properties:
                 edge_options["shadow"] = {"enabled": True, "color": color, "size": 3}
             
+            # Add edge label if enabled
+            if show_edge_labels:
+                if edge_label_column == 'source':
+                    edge_label = edge.source
+                elif edge_label_column == 'target':
+                    edge_label = edge.target
+                elif edge_label_column == 'type':
+                    edge_label = edge.edge_type.value
+                elif edge_label_column == 'weight':
+                    edge_label = str(edge.weight)
+                elif edge_label_column in edge.properties:
+                    edge_label = str(edge.properties[edge_label_column]) if edge.properties[edge_label_column] is not None else ""
+                else:
+                    edge_label = edge.edge_type.value  # Fallback to type
+                
+                edge_options["label"] = edge_label
+            
             net.add_edge(edge.source, edge.target, **edge_options)
             
             if edge.edge_type == EdgeType.ACTIVATION:
@@ -164,6 +197,16 @@ class NetworkVisualizer:
             title += f"{key}: {value}<br>"
         return title
     
+    def _get_default_library_smiles_color(self, node: ChemicalNode) -> Optional[str]:
+        """Get default color based on library_SMILES containing 'O'."""
+        if "library_SMILES" in node.properties:
+            smiles = node.properties["library_SMILES"]
+            if isinstance(smiles, str) and smiles and "O" in smiles:
+                return self.config["colors"]["library_smiles_default"]["contains_oxygen"]
+            elif isinstance(smiles, str) and smiles:
+                return self.config["colors"]["library_smiles_default"]["no_oxygen"]
+        return None
+    
     def visualize_network(
         self,
         network: ChemicalNetwork,
@@ -173,7 +216,10 @@ class NetworkVisualizer:
         node_colors: Optional[Dict[str, str]] = None,
         node_sizes: Optional[Dict[str, float]] = None,
         edge_colors: Optional[Dict[Tuple[str, str], str]] = None,
-        edge_widths: Optional[Dict[Tuple[str, str], float]] = None
+        edge_widths: Optional[Dict[Tuple[str, str], float]] = None,
+        node_label_column: str = 'label',
+        show_edge_labels: bool = False,
+        edge_label_column: str = 'type'
     ) -> str:
         self.network = network
         self.pyvis_net = self.create_pyvis_network(height, width, physics)
@@ -182,14 +228,17 @@ class NetworkVisualizer:
             self.pyvis_net, 
             network.nodes, 
             node_colors, 
-            node_sizes
+            node_sizes,
+            node_label_column
         )
         
         self.add_edges_to_pyvis(
             self.pyvis_net, 
             network.edges, 
             edge_colors, 
-            edge_widths
+            edge_widths,
+            show_edge_labels,
+            edge_label_column
         )
         
         with tempfile.NamedTemporaryFile(

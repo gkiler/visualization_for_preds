@@ -27,6 +27,12 @@ def initialize_session_state():
         }
     if 'selected_node_id' not in st.session_state:
         st.session_state.selected_node_id = None
+    if 'labeling_settings' not in st.session_state:
+        st.session_state.labeling_settings = {
+            'node_label_column': 'library_compound_name',
+            'edge_labels_enabled': False,
+            'edge_label_column': 'type'
+        }
 
 
 def render_node_click_buttons(network: ChemicalNetwork):
@@ -149,22 +155,28 @@ def main():
         
         sidebar_controls = SidebarControls()
         
-        viz_controls = sidebar_controls.render_visualization_controls()
+        # Move Special Filters to the top - check for library_SMILES filter toggle first
+        library_smiles_filter = sidebar_controls.render_library_smiles_toggle(st.session_state.network)
+        
+        # Use default values for removed controls
+        viz_controls = {"physics": True, "height": "750px"}
         st.session_state.visualization_settings.update(viz_controls)
         
-        node_filters = sidebar_controls.render_node_filters(st.session_state.network)
-        edge_filters = sidebar_controls.render_edge_filters(st.session_state.network)
+        labeling_options = sidebar_controls.render_labeling_controls(st.session_state.network)
+        st.session_state.labeling_settings.update(labeling_options)
+        
+        # Set empty filters since filtering sections are removed
+        node_filters = []
+        edge_filters = []
         
         st.session_state.active_filters['node_filters'] = node_filters
         st.session_state.active_filters['edge_filters'] = edge_filters
         
-        coloring_options = sidebar_controls.render_coloring_controls(st.session_state.network)
+        # Use default values for removed coloring and selection controls
+        coloring_options = {"node_color_by": "Type", "edge_color_by": "Type"}
         sizing_options = sidebar_controls.render_node_sizing_controls(st.session_state.network)
         
-        selected_nodes = sidebar_controls.render_selection_controls(st.session_state.network)
-        
-        # Check for library_SMILES filter toggle
-        library_smiles_filter = sidebar_controls.render_library_smiles_toggle(st.session_state.network)
+        selected_nodes = None
         
         st.session_state.filtered_network = apply_filters(
             st.session_state.network,
@@ -206,32 +218,10 @@ def main():
             
             visualizer = NetworkVisualizer()
             
+            # Use default node coloring (library_SMILES-based green/grey implemented in NetworkVisualizer)
             node_colors = None
             node_sizes = None
             edge_colors = None
-            
-            if coloring_options.get('node_color_by') == 'Property':
-                prop = coloring_options.get('node_color_property')
-                if prop:
-                    unique_values = set()
-                    for node in st.session_state.filtered_network.nodes:
-                        if prop in node.properties:
-                            unique_values.add(node.properties[prop])
-                    
-                    import matplotlib.cm as cm
-                    import matplotlib.colors as mcolors
-                    
-                    cmap = cm.get_cmap('viridis')
-                    color_map = {}
-                    for i, value in enumerate(sorted(unique_values)):
-                        color = mcolors.rgb2hex(cmap(i / len(unique_values)))
-                        color_map[value] = color
-                    
-                    node_colors = visualizer.get_node_colors_by_property(
-                        st.session_state.filtered_network,
-                        prop,
-                        color_map
-                    )
             
             if sizing_options.get('size_by') == 'Property':
                 prop = sizing_options.get('size_property')
@@ -243,15 +233,7 @@ def main():
                         sizing_options.get('max_size', 50)
                     )
             
-            if coloring_options.get('edge_color_by') == 'Weight':
-                edge_colors = {}
-                weights = [e.weight for e in st.session_state.filtered_network.edges]
-                if weights:
-                    min_w, max_w = min(weights), max(weights)
-                    for edge in st.session_state.filtered_network.edges:
-                        normalized = (edge.weight - min_w) / (max_w - min_w) if max_w > min_w else 0.5
-                        color = f"rgba(0, 0, 255, {normalized})"
-                        edge_colors[(edge.source, edge.target)] = color
+            # Use default edge coloring (type-based from config)
             
             html_file = visualizer.visualize_network(
                 st.session_state.filtered_network,
@@ -259,7 +241,10 @@ def main():
                 physics=st.session_state.visualization_settings.get('physics', True),
                 node_colors=node_colors,
                 node_sizes=node_sizes,
-                edge_colors=edge_colors
+                edge_colors=edge_colors,
+                node_label_column=st.session_state.labeling_settings.get('node_label_column', 'label'),
+                show_edge_labels=st.session_state.labeling_settings.get('edge_labels_enabled', False),
+                edge_label_column=st.session_state.labeling_settings.get('edge_label_column', 'type')
             )
             
             visualizer.display_in_streamlit(html_file)
