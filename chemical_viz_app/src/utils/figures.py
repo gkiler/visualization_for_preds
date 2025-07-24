@@ -79,62 +79,10 @@ class FigureHandler:
     
     @staticmethod
     def render_figure_input_ui() -> Optional[Dict[str, Any]]:
-        with st.expander("🖼️ Add External Figure", expanded=False):
-            input_method = st.radio(
-                "Select input method:",
-                ["URL", "Upload File"],
-                horizontal=True
-            )
-            
-            figure_data = None
-            caption = None
-            
-            if input_method == "URL":
-                url = st.text_input(
-                    "Enter figure URL:",
-                    placeholder="https://example.com/figure.png"
-                )
-                
-                if url:
-                    parsed = urlparse(url)
-                    if parsed.scheme and parsed.netloc:
-                        if st.button("Fetch Figure"):
-                            with st.spinner("Fetching figure..."):
-                                image_data = FigureHandler.fetch_figure_from_url(url)
-                                if image_data:
-                                    caption = st.text_input(
-                                        "Caption (optional):",
-                                        key="url_caption"
-                                    )
-                                    figure_data = {
-                                        'url': url,
-                                        'data': image_data,
-                                        'caption': caption or url
-                                    }
-                    else:
-                        st.error("Please enter a valid URL")
-            
-            else:  # Upload File
-                uploaded_file = st.file_uploader(
-                    "Choose an image file",
-                    type=['png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'],
-                    key="figure_upload"
-                )
-                
-                if uploaded_file:
-                    caption = st.text_input(
-                        "Caption (optional):",
-                        key="upload_caption"
-                    )
-                    
-                    figure_data = {
-                        'data': uploaded_file.read(),
-                        'caption': caption or uploaded_file.name
-                    }
-                    
-                    uploaded_file.seek(0)
-            
-            return figure_data
+        # "Add External Figure" UI has been disabled - the expander section has been removed
+        # This method now returns None to maintain compatibility with existing code
+        # All other figure functionality (display, gallery, management) remains intact
+        return None
     
     @staticmethod
     def save_figure_to_temp(image_data: bytes, format: str = "PNG") -> str:

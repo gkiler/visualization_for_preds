@@ -11,7 +11,6 @@ from src.visualization.network import NetworkVisualizer
 from src.visualization.filters import NetworkFilter
 from src.ui.components import UIComponents
 from src.ui.sidebar import SidebarControls
-from src.utils.figures import FigureHandler
 
 
 def initialize_session_state():
@@ -294,8 +293,8 @@ def main():
             components.html(postmessage_listener, height=0)
         
         with col2:
-            st.subheader("Additional Figures")
-            FigureHandler.render_figure_management_ui()
+            st.subheader("Network Statistics")
+            UIComponents.render_network_stats(st.session_state.filtered_network)
         
         with col3:
             # Display node details if a node is selected
