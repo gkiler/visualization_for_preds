@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"  
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+     http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  
+  <!-- Node attribute definitions -->
+  <key id="node_type" for="node" attr.name="type" attr.type="string">
+    <default>other</default>
+  </key>
+  <key id="node_label" for="node" attr.name="label" attr.type="string"/>
+  <key id="formula" for="node" attr.name="formula" attr.type="string"/>
+  <key id="weight" for="node" attr.name="weight" attr.type="double"/>
+  <key id="size" for="node" attr.name="size" attr.type="double"/>
+  <key id="color" for="node" attr.name="color" attr.type="string"/>
+  
+  <!-- Edge attribute definitions -->
+  <key id="edge_type" for="edge" attr.name="type" attr.type="string">
+    <default>other</default>
+  </key>
+  <key id="affinity" for="edge" attr.name="affinity" attr.type="double"/>
+  <key id="strength" for="edge" attr.name="strength" attr.type="double"/>
+  <key id="edge_weight" for="edge" attr.name="weight" attr.type="double">
+    <default>1.0</default>
+  </key>
+  
+  <graph id="ChemicalNetwork" edgedefault="directed">
+    
+    <!-- Molecules -->
+    <node id="mol1">
+      <data key="node_type">molecule</data>
+      <data key="node_label">Glucose</data>
+      <data key="formula">C6H12O6</data>
+      <data key="weight">180.16</data>
+      <data key="size">30</data>
+      <data key="color">#4CAF50</data>
+    </node>
+    
+    <node id="mol2">
+      <data key="node_type">molecule</data>
+      <data key="node_label">Sucrose</data>
+      <data key="formula">C12H22O11</data>
+      <data key="weight">342.30</data>
+      <data key="size">35</data>
+      <data key="color">#4CAF50</data>
+    </node>
+    
+    <!-- Proteins -->
+    <node id="prot1">
+      <data key="node_type">protein</data>
+      <data key="node_label">Hexokinase</data>
+      <data key="weight">450</data>
+      <data key="size">40</data>
+      <data key="color">#2196F3</data>
+    </node>
+    
+    <node id="prot2">
+      <data key="node_type">protein</data>
+      <data key="node_label">Glucose Transporter</data>
+      <data key="weight">320</data>
+      <data key="size">35</data>
+      <data key="color">#2196F3</data>
+    </node>
+    
+    <!-- Reactions -->
+    <node id="rxn1">
+      <data key="node_type">reaction</data>
+      <data key="node_label">Glycolysis Entry</data>
+      <data key="weight">0.5</data>
+      <data key="size">25</data>
+      <data key="color">#FF9800</data>
+    </node>
+    
+    <!-- Pathways -->
+    <node id="path1">
+      <data key="node_type">pathway</data>
+      <data key="node_label">Glycolysis</data>
+      <data key="weight">5</data>
+      <data key="size">45</data>
+      <data key="color">#9C27B0</data>
+    </node>
+    
+    <!-- Edges with attributes -->
+    <edge id="e1" source="mol1" target="prot1">
+      <data key="edge_type">binding</data>
+      <data key="affinity">0.8</data>
+      <data key="edge_weight">0.8</data>
+    </edge>
+    
+    <edge id="e2" source="mol2" target="prot2">
+      <data key="edge_type">binding</data>
+      <data key="affinity">0.6</data>
+      <data key="edge_weight">0.6</data>
+    </edge>
+    
+    <edge id="e3" source="prot1" target="rxn1">
+      <data key="edge_type">activation</data>
+      <data key="strength">0.9</data>
+      <data key="edge_weight">0.9</data>
+    </edge>
+    
+    <edge id="e4" source="prot2" target="rxn1">
+      <data key="edge_type">inhibition</data>
+      <data key="strength">0.7</data>
+      <data key="edge_weight">0.7</data>
+    </edge>
+    
+    <edge id="e5" source="rxn1" target="path1">
+      <data key="edge_type">interaction</data>
+      <data key="edge_weight">0.85</data>
+    </edge>
+    
+    <edge id="e6" source="mol1" target="mol2">
+      <data key="edge_type">interaction</data>
+      <data key="edge_weight">0.5</data>
+    </edge>
+    
+  </graph>
+</graphml>

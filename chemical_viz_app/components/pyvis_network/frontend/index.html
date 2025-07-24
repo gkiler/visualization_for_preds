@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>PyVis Network with Click Handling</title>
+</head>
+<body>
+    <div id="network-content"></div>
+    
+    <script>
+        // Simple approach: inject HTML and add click handling
+        window.addEventListener('DOMContentLoaded', function() {
+            // This will be populated by the Streamlit component
+            const htmlContent = window.pyvisHTML || '';
+            
+            if (htmlContent) {
+                document.getElementById('network-content').innerHTML = htmlContent;
+                
+                // Wait for network to initialize, then add click handler
+                setTimeout(addClickHandler, 1500);
+            }
+        });
+        
+        function addClickHandler() {
+            // Look for the network object
+            if (typeof window.network !== 'undefined') {
+                window.network.on('click', function(params) {
+                    if (params.nodes.length > 0) {
+                        const nodeId = params.nodes[0];
+                        
+                        // Store in localStorage for Streamlit to read
+                        localStorage.setItem('clicked_node_id', nodeId);
+                        localStorage.setItem('click_timestamp', Date.now().toString());
+                        
+                        // Also try postMessage to parent window
+                        if (window.parent !== window) {
+                            window.parent.postMessage({
+                                type: 'pyvis_node_click',
+                                nodeId: nodeId,
+                                timestamp: Date.now()
+                            }, '*');
+                        }
+                        
+                        console.log('Node clicked:', nodeId);
+                    }
+                });
+                console.log('Click handler added successfully');
+            } else {
+                console.log('Network not ready, retrying...');
+                setTimeout(addClickHandler, 500);
+            }
+        }
+    </script>
+</body>
+</html>

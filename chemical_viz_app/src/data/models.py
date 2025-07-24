@@ -1,0 +1,148 @@
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Any, Union
+from enum import Enum
+import pandas as pd
+
+
+class NodeType(Enum):
+    MOLECULE = "molecule"
+    PROTEIN = "protein"
+    REACTION = "reaction"
+    PATHWAY = "pathway"
+    OTHER = "other"
+
+
+class EdgeType(Enum):
+    INTERACTION = "interaction"
+    ACTIVATION = "activation"
+    INHIBITION = "inhibition"
+    BINDING = "binding"
+    OTHER = "other"
+
+
+@dataclass
+class ChemicalNode:
+    id: str
+    label: str
+    node_type: NodeType
+    properties: Dict[str, Any] = field(default_factory=dict)
+    x: Optional[float] = None
+    y: Optional[float] = None
+    size: Optional[float] = None
+    color: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "type": self.node_type.value,
+            "properties": self.properties,
+            "x": self.x,
+            "y": self.y,
+            "size": self.size,
+            "color": self.color
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ChemicalNode':
+        node_type = NodeType(data.get("type", "other"))
+        return cls(
+            id=data["id"],
+            label=data["label"],
+            node_type=node_type,
+            properties=data.get("properties", {}),
+            x=data.get("x"),
+            y=data.get("y"),
+            size=data.get("size"),
+            color=data.get("color")
+        )
+
+
+@dataclass
+class ChemicalEdge:
+    source: str
+    target: str
+    edge_type: EdgeType
+    properties: Dict[str, Any] = field(default_factory=dict)
+    weight: float = 1.0
+    color: Optional[str] = None
+    width: Optional[float] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "source": self.source,
+            "target": self.target,
+            "type": self.edge_type.value,
+            "properties": self.properties,
+            "weight": self.weight,
+            "color": self.color,
+            "width": self.width
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ChemicalEdge':
+        edge_type = EdgeType(data.get("type", "other"))
+        return cls(
+            source=data["source"],
+            target=data["target"],
+            edge_type=edge_type,
+            properties=data.get("properties", {}),
+            weight=data.get("weight", 1.0),
+            color=data.get("color"),
+            width=data.get("width")
+        )
+
+
+@dataclass
+class ChemicalNetwork:
+    nodes: List[ChemicalNode] = field(default_factory=list)
+    edges: List[ChemicalEdge] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def add_node(self, node: ChemicalNode) -> None:
+        self.nodes.append(node)
+    
+    def add_edge(self, edge: ChemicalEdge) -> None:
+        self.edges.append(edge)
+    
+    def get_node_by_id(self, node_id: str) -> Optional[ChemicalNode]:
+        for node in self.nodes:
+            if node.id == node_id:
+                return node
+        return None
+    
+    def get_edges_for_node(self, node_id: str) -> List[ChemicalEdge]:
+        return [
+            edge for edge in self.edges
+            if edge.source == node_id or edge.target == node_id
+        ]
+    
+    def filter_nodes(self, filter_func) -> List[ChemicalNode]:
+        return [node for node in self.nodes if filter_func(node)]
+    
+    def filter_edges(self, filter_func) -> List[ChemicalEdge]:
+        return [edge for edge in self.edges if filter_func(edge)]
+    
+    def to_dataframes(self) -> tuple[pd.DataFrame, pd.DataFrame]:
+        nodes_df = pd.DataFrame([node.to_dict() for node in self.nodes])
+        edges_df = pd.DataFrame([edge.to_dict() for edge in self.edges])
+        return nodes_df, edges_df
+    
+    @classmethod
+    def from_dataframes(
+        cls, 
+        nodes_df: pd.DataFrame, 
+        edges_df: pd.DataFrame,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> 'ChemicalNetwork':
+        network = cls(metadata=metadata or {})
+        
+        for _, row in nodes_df.iterrows():
+            node = ChemicalNode.from_dict(row.to_dict())
+            network.add_node(node)
+        
+        for _, row in edges_df.iterrows():
+            edge = ChemicalEdge.from_dict(row.to_dict())
+            network.add_edge(edge)
+        
+        return network

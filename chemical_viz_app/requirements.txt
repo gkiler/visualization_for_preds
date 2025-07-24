@@ -1,0 +1,10 @@
+streamlit>=1.29.0
+pyvis>=0.3.2
+networkx>=3.2
+pandas>=2.1.0
+numpy>=1.25.0
+pyyaml>=6.0
+requests>=2.31.0
+Pillow>=10.0.0
+plotly>=5.17.0
+lxml>=4.9.0

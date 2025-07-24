@@ -1,0 +1,62 @@
+app:
+  title: "Chemical Data Visualization"
+  page_icon: "🧪"
+  layout: "wide"
+  
+visualization:
+  default_physics: true
+  physics_options:
+    enabled: true
+    stabilization:
+      enabled: true
+      iterations: 100
+    solver: "barnesHut"
+    barnesHut:
+      gravitationalConstant: -8000
+      centralGravity: 0.3
+      springLength: 200
+      springConstant: 0.04
+      damping: 0.09
+      avoidOverlap: 0.1
+  
+  node_defaults:
+    shape: "dot"
+    size: 25
+    font:
+      size: 14
+      color: "#000000"
+    borderWidth: 2
+    
+  edge_defaults:
+    width: 2
+    smooth:
+      type: "continuous"
+      roundness: 0.5
+    
+colors:
+  node_categories:
+    molecule: "#4CAF50"
+    protein: "#2196F3"
+    reaction: "#FF9800"
+    pathway: "#9C27B0"
+    default: "#757575"
+    
+  edge_types:
+    interaction: "#666666"
+    activation: "#4CAF50"
+    inhibition: "#F44336"
+    binding: "#2196F3"
+    default: "#999999"
+    
+  # Molecular networking edge colors (customizable)
+  molecular_networking:
+    0: "#FF8C00"  # Orange for molecular_networking == 0
+    1: "#1E90FF"  # Blue for molecular_networking == 1
+    
+data:
+  max_nodes: 1000
+  max_edges: 5000
+  cache_ttl: 3600  # seconds
+  graphml:
+    remove_isolated_nodes: true
+    unlimited_nodes: true  # No node limit for GraphML files
