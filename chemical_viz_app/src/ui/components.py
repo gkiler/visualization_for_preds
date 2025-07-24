@@ -1,8 +1,11 @@
 import streamlit as st
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import pandas as pd
 import re
 from ..data.models import ChemicalNetwork
+
+if TYPE_CHECKING:
+    from ..data.models import ChemicalNode, ChemicalEdge
 
 
 class UIComponents:
@@ -56,6 +59,256 @@ class UIComponents:
             layout="wide",
             initial_sidebar_state="expanded"
         )
+        
+        # Add custom CSS for white background and improved styling
+        st.markdown("""
+        <style>
+        /* Force white background on everything */
+        .stApp {
+            background-color: white !important;
+        }
+        .main .block-container {
+            background-color: white !important;
+            padding-top: 2rem;
+        }
+        
+        /* Override Streamlit's default dark backgrounds */
+        .stApp > div {
+            background-color: white !important;
+        }
+        [data-testid="stAppViewContainer"] {
+            background-color: white !important;
+        }
+        [data-testid="stHeader"] {
+            background-color: white !important;
+        }
+        [data-testid="stToolbar"] {
+            background-color: white !important;
+        }
+        
+        /* Sidebar styling - white background */
+        .sidebar .sidebar-content {
+            background-color: white !important;
+            border-right: 2px solid #e9ecef;
+        }
+        .sidebar .sidebar-header {
+            background-color: white !important;
+        }
+        [data-testid="stSidebar"] {
+            background-color: white !important;
+        }
+        [data-testid="stSidebar"] > div {
+            background-color: white !important;
+        }
+        
+        /* File upload styling - white background */
+        .stFileUploader {
+            background-color: white !important;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+        }
+        .stFileUploader:hover {
+            border-color: #007bff;
+            background-color: #f8f9ff !important;
+        }
+        .stFileUploader > div {
+            background-color: white !important;
+        }
+        [data-testid="stFileUploader"] {
+            background-color: white !important;
+        }
+        
+        /* Dropdown/selectbox styling - white background */
+        .stSelectbox > div > div {
+            background-color: white !important;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            color: black !important;
+        }
+        .stSelectbox > div > div:focus-within {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        [data-testid="stSelectbox"] {
+            background-color: white !important;
+        }
+        
+        /* Radio button styling - white background */
+        .stRadio > div {
+            background-color: white !important;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+        [data-testid="stRadio"] {
+            background-color: white !important;
+        }
+        
+        /* Expander styling - white background */
+        .streamlit-expanderHeader {
+            background-color: white !important;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            color: black !important;
+        }
+        .streamlit-expanderHeader:hover {
+            background-color: #f8f9fa !important;
+        }
+        .streamlit-expanderContent {
+            background-color: white !important;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            padding: 1rem;
+        }
+        [data-testid="stExpander"] {
+            background-color: white !important;
+        }
+        
+        /* Button styling - keep colorful buttons but ensure text is readable */
+        .stButton > button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+        .stButton > button:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Secondary button styling */
+        .stButton > button[kind="secondary"] {
+            background-color: white !important;
+            color: black !important;
+            border: 1px solid #ced4da;
+        }
+        .stButton > button[kind="secondary"]:hover {
+            background-color: #f8f9fa !important;
+            color: black !important;
+        }
+        
+        /* Ensure all containers have white background */
+        .stContainer, .stColumns {
+            background-color: white !important;
+        }
+        
+        /* Override any dark text and make it black */
+        .stApp, .stApp *, div, span, p, h1, h2, h3, h4, h5, h6 {
+            color: black !important;
+        }
+        
+        /* Metrics styling - white background */
+        [data-testid="metric-container"] {
+            background-color: white !important;
+            padding: 1rem;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            margin: 0.5rem 0;
+        }
+        
+        /* DataFrame styling - white background */
+        .stDataFrame {
+            background-color: white !important;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        [data-testid="stDataFrame"] {
+            background-color: white !important;
+        }
+        
+        /* Tab styling - white background */
+        .stTabs {
+            background-color: white !important;
+        }
+        .stTabs > div {
+            background-color: white !important;
+        }
+        .stTabs > div > div {
+            background-color: white !important;
+        }
+        .stTabs > div > div > div {
+            background-color: white !important;
+            color: black !important;
+        }
+        .stTabs > div > div > div[data-baseweb="tab-highlight"] {
+            background-color: #007bff !important;
+            color: white !important;
+        }
+        
+        /* Info/warning/error boxes - white background */
+        .stAlert {
+            background-color: white !important;
+            border: 1px solid #dee2e6;
+            color: black !important;
+        }
+        [data-testid="stAlert"] {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        /* Code blocks - grey background */
+        .stCode {
+            background-color: #e9ecef !important;
+            border: 1px solid #ced4da;
+            color: black !important;
+        }
+        pre, code {
+            background-color: #e9ecef !important;
+            color: black !important;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        
+        /* Spinner - ensure it's visible */
+        .stSpinner {
+            color: #007bff !important;
+        }
+        
+        /* Input fields - white background */
+        .stTextInput > div > div > input {
+            background-color: white !important;
+            color: black !important;
+            border: 1px solid #ced4da;
+        }
+        
+        /* Markdown content - ensure black text */
+        .stMarkdown {
+            color: black !important;
+        }
+        .stMarkdown * {
+            color: black !important;
+        }
+        
+        /* Success/info messages - white background */
+        .stSuccess {
+            background-color: white !important;
+            border: 1px solid #28a745;
+            color: black !important;
+        }
+        .stInfo {
+            background-color: white !important;
+            border: 1px solid #17a2b8;
+            color: black !important;
+        }
+        .stWarning {
+            background-color: white !important;
+            border: 1px solid #ffc107;
+            color: black !important;
+        }
+        .stError {
+            background-color: white !important;
+            border: 1px solid #dc3545;
+            color: black !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
         st.title("🧪 Chemical Data Network Visualization")
         st.markdown("---")
@@ -298,6 +551,100 @@ class UIComponents:
                         st.markdown(f"**{display_name}:** {value}")
                     displayed_fields.add(property_key)
         
+        # Spectrum and Molecular Visualizations
+        st.markdown("### Visualizations")
+        
+        # Import ModiFinder utilities
+        from ..utils.modifinder_utils import ModiFinderUtils
+        
+        # Create tabs for different visualizations
+        viz_tabs = []
+        
+        # Check if we have SMILES data for molecular structure
+        smiles = node.properties.get('library_SMILES')
+        if smiles and str(smiles).strip():
+            viz_tabs.append("Molecular Structure")
+        
+        # Check if we have spectrum data
+        spectrum_fields = ['spectrum_id', 'SpectrumID', 'usi', 'USI']
+        has_spectrum = any(node.properties.get(field) for field in spectrum_fields)
+        if has_spectrum:
+            viz_tabs.append("Spectrum")
+        
+        if viz_tabs:
+            # Create tabs for available visualizations
+            if len(viz_tabs) == 1:
+                # Single visualization - no tabs needed
+                if viz_tabs[0] == "Molecular Structure":
+                    st.markdown("#### Molecular Structure")
+                    ModiFinderUtils.render_loading_placeholder("Generating molecular structure...")
+                    
+                    if ModiFinderUtils.is_available():
+                        img_base64 = ModiFinderUtils.generate_molecule_image(str(smiles).strip())
+                        if img_base64:
+                            ModiFinderUtils.display_image_from_base64(
+                                img_base64, 
+                                f"Molecular Structure: {node.label}"
+                            )
+                        else:
+                            ModiFinderUtils.render_error_placeholder("Could not generate molecular structure")
+                    else:
+                        ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+                        
+                elif viz_tabs[0] == "Spectrum":
+                    st.markdown("#### Spectrum Visualization")
+                    ModiFinderUtils.render_loading_placeholder("Generating spectrum visualization...")
+                    
+                    if ModiFinderUtils.is_available():
+                        img_base64 = ModiFinderUtils.generate_spectrum_image(node.properties)
+                        if img_base64:
+                            ModiFinderUtils.display_image_from_base64(
+                                img_base64, 
+                                f"Spectrum: {node.label}"
+                            )
+                        else:
+                            ModiFinderUtils.render_error_placeholder("Could not generate spectrum visualization")
+                    else:
+                        ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+            else:
+                # Multiple visualizations - use tabs
+                tab_objects = st.tabs(viz_tabs)
+                
+                for i, tab_name in enumerate(viz_tabs):
+                    with tab_objects[i]:
+                        if tab_name == "Molecular Structure":
+                            ModiFinderUtils.render_loading_placeholder("Generating molecular structure...")
+                            
+                            if ModiFinderUtils.is_available():
+                                img_base64 = ModiFinderUtils.generate_molecule_image(str(smiles).strip())
+                                if img_base64:
+                                    ModiFinderUtils.display_image_from_base64(
+                                        img_base64, 
+                                        f"Molecular Structure: {node.label}"
+                                    )
+                                else:
+                                    ModiFinderUtils.render_error_placeholder("Could not generate molecular structure")
+                            else:
+                                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+                                
+                        elif tab_name == "Spectrum":
+                            ModiFinderUtils.render_loading_placeholder("Generating spectrum visualization...")
+                            
+                            if ModiFinderUtils.is_available():
+                                img_base64 = ModiFinderUtils.generate_spectrum_image(node.properties)
+                                if img_base64:
+                                    ModiFinderUtils.display_image_from_base64(
+                                        img_base64, 
+                                        f"Spectrum: {node.label}"
+                                    )
+                                else:
+                                    ModiFinderUtils.render_error_placeholder("Could not generate spectrum visualization")
+                            else:
+                                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+        else:
+            # No visualization data available
+            st.info("🔬 No spectrum or molecular structure data available for visualization")
+        
         # Display any additional properties not in the mapping
         other_properties = {k: v for k, v in node.properties.items() 
                           if k not in displayed_fields and v is not None and str(v).strip()}
@@ -317,16 +664,118 @@ class UIComponents:
                     # Regular display
                     st.markdown(f"**{formatted_key}:** {value}")
         
-        # Placeholder for Spectrum Visualizer
-        st.markdown("### Spectrum Visualizer")
-        with st.container():
-            st.info("🔬 Spectrum visualization will be available here in a future update")
-            # Placeholder image area
-            st.empty()
-        
         st.markdown("---")
         if st.button("Close Details", key=f"close_details_{node.id}"):
             if 'selected_node_id' in st.session_state:
                 del st.session_state.selected_node_id
+            st.rerun()
+    
+    @staticmethod
+    def render_edge_detail_panel(edge: 'ChemicalEdge', network: 'ChemicalNetwork'):
+        """Render detailed information panel for a selected edge."""
+        st.subheader(f"Edge Details: {edge.source} → {edge.target}")
+        
+        # Display basic edge info
+        st.markdown(f"**Edge Type:** {edge.edge_type.value}")
+        st.markdown(f"**Weight:** {edge.weight}")
+        
+        # Display edge properties
+        if edge.properties:
+            st.markdown("### Edge Properties")
+            for key, value in edge.properties.items():
+                if value is not None and str(value).strip():
+                    formatted_key = key.replace('_', ' ').title()
+                    # Check if this might be a URL or special data
+                    value_str = str(value)
+                    if any(pattern in value_str.lower() for pattern in ['http', 'gnps', 'usi']):
+                        # Likely URL data - use code block for better formatting
+                        st.markdown(f"**{formatted_key}:**")
+                        st.code(value_str, language=None)
+                    else:
+                        # Regular display
+                        st.markdown(f"**{formatted_key}:** {value}")
+        
+        # Get source and target nodes
+        source_node = network.get_node_by_id(edge.source)
+        target_node = network.get_node_by_id(edge.target)
+        
+        # Display connected nodes information
+        st.markdown("### Connected Nodes")
+        
+        if source_node and target_node:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown(f"**Source Node: {source_node.label}**")
+                st.markdown(f"ID: {source_node.id}")
+                st.markdown(f"Type: {source_node.node_type.value}")
+                
+                # Show key properties
+                if 'library_compound_name' in source_node.properties:
+                    st.markdown(f"Compound: {source_node.properties['library_compound_name']}")
+                if 'library_SMILES' in source_node.properties:
+                    st.markdown("SMILES:")
+                    st.code(str(source_node.properties['library_SMILES']), language=None)
+            
+            with col2:
+                st.markdown(f"**Target Node: {target_node.label}**")
+                st.markdown(f"ID: {target_node.id}")
+                st.markdown(f"Type: {target_node.node_type.value}")
+                
+                # Show key properties
+                if 'library_compound_name' in target_node.properties:
+                    st.markdown(f"Compound: {target_node.properties['library_compound_name']}")
+                if 'library_SMILES' in target_node.properties:
+                    st.markdown("SMILES:")
+                    st.code(str(target_node.properties['library_SMILES']), language=None)
+        else:
+            st.warning("Could not find complete node information for this edge")
+        
+        # Spectrum Alignment Visualization
+        st.markdown("### Spectrum Alignment")
+        
+        # Import ModiFinder utilities
+        from ..utils.modifinder_utils import ModiFinderUtils
+        
+        # Try to extract USI information from edge properties
+        usi1, usi2 = ModiFinderUtils.extract_usis_from_edge_data(edge.properties)
+        
+        if usi1 and usi2:
+            st.info(f"🔬 Generating spectrum alignment between {edge.source} and {edge.target}")
+            
+            if ModiFinderUtils.is_available():
+                with st.spinner("Generating spectrum alignment visualization..."):
+                    img_base64 = ModiFinderUtils.generate_alignment_image(usi1, usi2)
+                    
+                if img_base64:
+                    ModiFinderUtils.display_image_from_base64(
+                        img_base64, 
+                        f"Spectrum Alignment: {edge.source} ↔ {edge.target}"
+                    )
+                    
+                    # Display USI information
+                    with st.expander("📊 USI Details"):
+                        st.markdown("**USI 1:**")
+                        st.code(usi1, language=None)
+                        st.markdown("**USI 2:**")
+                        st.code(usi2, language=None)
+                else:
+                    ModiFinderUtils.render_error_placeholder("Could not generate spectrum alignment")
+            else:
+                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+        else:
+            st.info("🔬 No USI information found in edge data for spectrum alignment")
+            
+            # Show what fields were searched
+            with st.expander("🔍 Debug: Edge Properties Searched"):
+                st.write("Searched for USI data in these fields:")
+                st.code("url, link, gnps_url, usi_url, spectrum_url, usi1, usi2, USI1, USI2")
+                st.write("Available edge properties:")
+                st.json(edge.properties)
+        
+        st.markdown("---")
+        if st.button("Close Details", key=f"close_edge_details_{edge.source}_{edge.target}"):
+            if 'selected_edge_id' in st.session_state:
+                del st.session_state.selected_edge_id
             st.rerun()
     

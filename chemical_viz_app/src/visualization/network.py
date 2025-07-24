@@ -109,7 +109,7 @@ class NetworkVisualizer:
         default_colors = self.config["colors"]["edge_types"]
         default_edge_config = self.config["visualization"]["edge_defaults"]
         
-        for edge in edges:
+        for i, edge in enumerate(edges):
             color = edge.color
             if not color:
                 if edge_colors and (edge.source, edge.target) in edge_colors:
@@ -172,6 +172,10 @@ class NetworkVisualizer:
                 
                 edge_options["label"] = edge_label
             
+            # Set explicit edge ID to match our format with index
+            edge_id = f"{edge.source}-{edge.target}-{i}"
+            edge_options["id"] = edge_id
+            
             net.add_edge(edge.source, edge.target, **edge_options)
             
             if edge.edge_type == EdgeType.ACTIVATION:
@@ -179,14 +183,16 @@ class NetworkVisualizer:
                     edge.source,
                     edge.target,
                     arrows="to",
-                    arrowStrikethrough=False
+                    arrowStrikethrough=False,
+                    id=f"{edge_id}_arrow"
                 )
             elif edge.edge_type == EdgeType.INHIBITION:
                 net.add_edge(
                     edge.source,
                     edge.target,
                     arrows="to",
-                    arrowStrikethrough=True
+                    arrowStrikethrough=True,
+                    id=f"{edge_id}_arrow"
                 )
     
     def _create_edge_title(self, edge: ChemicalEdge) -> str:
@@ -269,6 +275,7 @@ class NetworkVisualizer:
                 });
                 
                 network.on('click', function(params) {
+                    // Handle node clicks
                     if (params.nodes.length > 0) {
                         const nodeId = params.nodes[0];
                         console.log('Node clicked:', nodeId);
@@ -279,20 +286,37 @@ class NetworkVisualizer:
                         // Look for the button in parent window (Streamlit)
                         if (window.parent && window.parent.document) {
                             try {
-                                // Look for button by data-testid or other attributes
+                                // Multiple strategies to find the button
                                 const buttons = window.parent.document.querySelectorAll('button');
                                 let targetButton = null;
+                                const buttonKey = 'node_click_' + nodeId;
                                 
+                                // Strategy 1: Find by button key in data-testid
                                 for (let button of buttons) {
-                                    // Check if button text contains the node ID
-                                    if (button.textContent && button.textContent.includes(nodeId)) {
+                                    const testId = button.getAttribute('data-testid');
+                                    if (testId && testId.includes(buttonKey)) {
                                         targetButton = button;
                                         break;
                                     }
-                                    // Also check for data attributes
-                                    if (button.getAttribute('data-node-id') === nodeId) {
-                                        targetButton = button;
-                                        break;
+                                }
+                                
+                                // Strategy 2: Find by button text content if first strategy fails
+                                if (!targetButton) {
+                                    for (let button of buttons) {
+                                        if (button.textContent && button.textContent.includes(`Select ${nodeId}`)) {
+                                            targetButton = button;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // Strategy 3: Find by data attributes if available
+                                if (!targetButton) {
+                                    for (let button of buttons) {
+                                        if (button.getAttribute('data-node-id') === nodeId) {
+                                            targetButton = button;
+                                            break;
+                                        }
                                     }
                                 }
                                 
@@ -338,6 +362,137 @@ class NetworkVisualizer:
                             } catch (e) {
                                 console.log('Could not update node highlight:', e);
                             }
+                        }
+                    }
+                    // Handle edge clicks
+                    else if (params.edges.length > 0) {
+                        const edgeId = params.edges[0];
+                        console.log('Edge clicked:', edgeId);
+                        
+                        // The edgeId from PyVis should already be in the correct format: source-target-index
+                        // Try to find and click the corresponding Streamlit button
+                        const buttonKey = 'edge_click_' + edgeId;
+                        
+                        // Look for the button in parent window (Streamlit)
+                        if (window.parent && window.parent.document) {
+                            try {
+                                // Multiple strategies to find the button
+                                const buttons = window.parent.document.querySelectorAll('button');
+                                let targetButton = null;
+                                
+                                // Strategy 1: Find by button key (most reliable)
+                                for (let button of buttons) {
+                                    // Check button's data-testid or other identifying attributes
+                                    const testId = button.getAttribute('data-testid');
+                                    if (testId && testId.includes(buttonKey)) {
+                                        targetButton = button;
+                                        break;
+                                    }
+                                }
+                                
+                                // Strategy 2: Find by button text content if first strategy fails
+                                if (!targetButton) {
+                                    // Extract source and target from edgeId for text matching
+                                    const edgeParts = edgeId.split('-');
+                                    if (edgeParts.length >= 3) {
+                                        const source = edgeParts[0];
+                                        const target = edgeParts[1];
+                                        const displayId = `${source}-${target}`;
+                                        
+                                        for (let button of buttons) {
+                                            if (button.textContent && button.textContent.includes(`Select ${displayId}`)) {
+                                                targetButton = button;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Strategy 3: Find by data attributes if available
+                                if (!targetButton) {
+                                    for (let button of buttons) {
+                                        if (button.getAttribute('data-edge-id') === edgeId) {
+                                            targetButton = button;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (targetButton) {
+                                    console.log('Clicking Streamlit button for edge:', edgeId);
+                                    targetButton.click();
+                                } else {
+                                    console.log('Could not find button for edge:', edgeId);
+                                    console.log('Available buttons:', Array.from(buttons).map(b => b.textContent?.slice(0, 50)).filter(t => t));
+                                    // Fallback: try to communicate via postMessage
+                                    window.parent.postMessage({
+                                        type: 'edge_click',
+                                        edgeId: edgeId
+                                    }, '*');
+                                }
+                            } catch (e) {
+                                console.log('Error clicking edge button:', e);
+                                // Fallback: postMessage
+                                window.parent.postMessage({
+                                    type: 'edge_click',
+                                    edgeId: edgeId
+                                }, '*');
+                            }
+                        }
+                        
+                        // Visual feedback - highlight the clicked edge
+                        if (typeof edges !== 'undefined') {
+                            try {
+                                const clickedEdge = edges.get(edgeId);
+                                if (clickedEdge) {
+                                    console.log('Highlighting edge:', edgeId, clickedEdge);
+                                    const highlightedEdge = {...clickedEdge};
+                                    
+                                    // Increase edge width for visibility
+                                    const originalWidth = highlightedEdge.width || 2;
+                                    highlightedEdge.width = Math.max(originalWidth * 2.5, 4);
+                                    
+                                    // Set highlight color - handle both string and object color formats
+                                    if (typeof highlightedEdge.color === 'string') {
+                                        highlightedEdge.color = '#ff6b35';
+                                    } else if (typeof highlightedEdge.color === 'object') {
+                                        highlightedEdge.color = {
+                                            ...highlightedEdge.color,
+                                            color: '#ff6b35',
+                                            highlight: '#ff6b35'
+                                        };
+                                    } else {
+                                        highlightedEdge.color = '#ff6b35';
+                                    }
+                                    
+                                    // Add shadow for better visibility
+                                    highlightedEdge.shadow = {
+                                        enabled: true,
+                                        color: '#ff6b35',
+                                        size: 8,
+                                        x: 0,
+                                        y: 0
+                                    };
+                                    
+                                    edges.update([highlightedEdge]);
+                                    
+                                    // Reset highlight after 1.5 seconds
+                                    setTimeout(() => {
+                                        try {
+                                            edges.update([clickedEdge]);
+                                        } catch (resetError) {
+                                            console.log('Error resetting edge highlight:', resetError);
+                                        }
+                                    }, 1500);
+                                } else {
+                                    console.log('Edge not found for highlighting:', edgeId);
+                                }
+                            } catch (e) {
+                                console.log('Could not update edge highlight:', e);
+                                console.log('Available edges:', typeof edges !== 'undefined' ? edges.getIds() : 'edges undefined');
+                            }
+                        } else {
+                            console.log('Edges dataset not available for highlighting');
                         }
                     }
                 });

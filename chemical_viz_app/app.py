@@ -27,6 +27,8 @@ def initialize_session_state():
         }
     if 'selected_node_id' not in st.session_state:
         st.session_state.selected_node_id = None
+    if 'selected_edge_id' not in st.session_state:
+        st.session_state.selected_edge_id = None
     if 'labeling_settings' not in st.session_state:
         st.session_state.labeling_settings = {
             'node_label_column': 'library_compound_name',
@@ -58,6 +60,36 @@ def render_node_click_buttons(network: ChemicalNetwork):
                     use_container_width=True
                 ):
                     st.session_state.selected_node_id = node.id
+                    st.session_state.selected_edge_id = None  # Clear edge selection
+                    st.rerun()
+
+
+def render_edge_click_buttons(network: ChemicalNetwork):
+    """Render invisible buttons for each edge to handle clicks."""
+    if not network or not network.edges:
+        return
+    
+    # Create a container for invisible buttons
+    with st.container():
+        # Use columns to minimize visual impact
+        button_cols = st.columns(min(len(network.edges), 10))  # Max 10 columns
+        
+        for i, edge in enumerate(network.edges):
+            col_idx = i % len(button_cols)
+            with button_cols[col_idx]:
+                # Create unique edge ID using index to handle multiple edges between same nodes
+                edge_id = f"{edge.source}-{edge.target}-{i}"
+                display_id = f"{edge.source}-{edge.target}"
+                button_key = f"edge_click_{edge_id}"
+                if st.button(
+                    f"Select {display_id}", 
+                    key=button_key,
+                    help=f"Click to select edge {edge.source} → {edge.target} (#{i})",
+                    type="secondary",
+                    use_container_width=True
+                ):
+                    st.session_state.selected_edge_id = edge_id
+                    st.session_state.selected_node_id = None  # Clear node selection
                     st.rerun()
 
 
@@ -284,10 +316,18 @@ def main():
             
             visualizer.display_in_streamlit(html_file)
             
-            # Render hidden buttons for node clicking (below visualization)
-            with st.expander("🔧 Node Selection Interface", expanded=False):
-                st.info("These buttons can be clicked programmatically when you click nodes in the network above")
-                render_node_click_buttons(st.session_state.filtered_network)
+            # Render hidden buttons for node and edge clicking (below visualization)
+            with st.expander("🔧 Selection Interface", expanded=False):
+                st.info("These buttons can be clicked programmatically when you click nodes or edges in the network above")
+                
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    st.markdown("**Node Buttons**")
+                    render_node_click_buttons(st.session_state.filtered_network)
+                
+                with col_btn2:
+                    st.markdown("**Edge Buttons**")
+                    render_edge_click_buttons(st.session_state.filtered_network)
             
             # Add postMessage fallback listener
             postmessage_listener = """
@@ -297,14 +337,97 @@ def main():
                         const nodeId = event.data.nodeId;
                         console.log('Received node click message:', nodeId);
                         
-                        // Try to find and click the button
+                        // Multiple strategies to find the button - consistent with edge handling
                         const buttons = document.querySelectorAll('button');
+                        let targetButton = null;
+                        const buttonKey = 'node_click_' + nodeId;
+                        
+                        // Strategy 1: Find by button key in data-testid
                         for (let button of buttons) {
-                            if (button.textContent && button.textContent.includes(nodeId)) {
-                                console.log('Found and clicking button for node:', nodeId);
-                                button.click();
+                            const testId = button.getAttribute('data-testid');
+                            if (testId && testId.includes(buttonKey)) {
+                                targetButton = button;
                                 break;
                             }
+                        }
+                        
+                        // Strategy 2: Find by button text content if first strategy fails
+                        if (!targetButton) {
+                            for (let button of buttons) {
+                                if (button.textContent && button.textContent.includes(`Select ${nodeId}`)) {
+                                    targetButton = button;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Strategy 3: Find by data attributes if available
+                        if (!targetButton) {
+                            for (let button of buttons) {
+                                if (button.getAttribute('data-node-id') === nodeId) {
+                                    targetButton = button;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (targetButton) {
+                            console.log('Found and clicking button for node:', nodeId);
+                            targetButton.click();
+                        } else {
+                            console.log('Could not find button for node via postMessage:', nodeId);
+                        }
+                    }
+                    else if (event.data && event.data.type === 'edge_click') {
+                        const edgeId = event.data.edgeId;
+                        console.log('Received edge click message:', edgeId);
+                        
+                        // Multiple strategies to find the button - match the PyVis handler logic
+                        const buttons = document.querySelectorAll('button');
+                        let targetButton = null;
+                        const buttonKey = 'edge_click_' + edgeId;
+                        
+                        // Strategy 1: Find by button key in data-testid
+                        for (let button of buttons) {
+                            const testId = button.getAttribute('data-testid');
+                            if (testId && testId.includes(buttonKey)) {
+                                targetButton = button;
+                                break;
+                            }
+                        }
+                        
+                        // Strategy 2: Find by button text content if first strategy fails
+                        if (!targetButton) {
+                            const edgeParts = edgeId.split('-');
+                            if (edgeParts.length >= 3) {
+                                const source = edgeParts[0];
+                                const target = edgeParts[1];
+                                const displayId = `${source}-${target}`;
+                                
+                                for (let button of buttons) {
+                                    if (button.textContent && button.textContent.includes(`Select ${displayId}`)) {
+                                        targetButton = button;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Strategy 3: Find by data attributes if available
+                        if (!targetButton) {
+                            for (let button of buttons) {
+                                if (button.getAttribute('data-edge-id') === edgeId) {
+                                    targetButton = button;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (targetButton) {
+                            console.log('Found and clicking button for edge:', edgeId);
+                            targetButton.click();
+                        } else {
+                            console.log('Could not find button for edge via postMessage:', edgeId);
                         }
                     }
                 });
@@ -313,15 +436,21 @@ def main():
             components.html(postmessage_listener, height=0)
         
         with col2:
-            # Display node details if a node is selected
+            # Display details for selected node or edge
             if 'selected_node_id' in st.session_state and st.session_state.selected_node_id:
                 selected_node = st.session_state.filtered_network.get_node_by_id(st.session_state.selected_node_id)
                 if selected_node:
                     UIComponents.render_node_detail_panel(selected_node)
                 else:
                     st.info("Selected node not found in current filtered network")
+            elif 'selected_edge_id' in st.session_state and st.session_state.selected_edge_id:
+                selected_edge = st.session_state.filtered_network.get_edge_by_id(st.session_state.selected_edge_id)
+                if selected_edge:
+                    UIComponents.render_edge_detail_panel(selected_edge, st.session_state.filtered_network)
+                else:
+                    st.info("Selected edge not found in current filtered network")
             else:
-                st.info("Select a node to view details")
+                st.info("Select a node or edge to view details")
         
         # Network Statistics moved to bottom of page
         st.subheader("Network Statistics")

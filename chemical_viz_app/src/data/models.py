@@ -111,6 +111,27 @@ class ChemicalNetwork:
                 return node
         return None
     
+    def get_edge_by_id(self, edge_id: str) -> Optional[ChemicalEdge]:
+        """Get edge by ID in format 'source-target-index'."""
+        if '-' not in edge_id:
+            return None
+        
+        # Check if this is the new format with index
+        parts = edge_id.split('-')
+        if len(parts) >= 3 and parts[-1].isdigit():
+            # New format: source-target-index
+            index = int(parts[-1])
+            if 0 <= index < len(self.edges):
+                return self.edges[index]
+        else:
+            # Old format: source-target (find first match)
+            source, target = edge_id.split('-', 1)
+            for edge in self.edges:
+                if edge.source == source and edge.target == target:
+                    return edge
+        
+        return None
+    
     def get_edges_for_node(self, node_id: str) -> List[ChemicalEdge]:
         return [
             edge for edge in self.edges

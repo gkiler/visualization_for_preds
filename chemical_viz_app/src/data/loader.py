@@ -5,10 +5,85 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union
 import streamlit as st
 import networkx as nx
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from .models import ChemicalNetwork, ChemicalNode, ChemicalEdge, NodeType, EdgeType
 
 
 class DataLoader:
+    
+    @staticmethod
+    def _process_graph_links(graph):
+        """
+        Process a networkx graph to update node 'link' attributes based on edge 'link' attributes.
+        Source nodes get usi1, target nodes get usi2 (renamed as usi1).
+        Also assigns usi values directly as node properties.
+        """
+        
+        for source, target, edge_data in graph.edges(data=True):
+            # Check if edge has usi1 and usi2 properties directly
+            if 'usi1' in edge_data and 'usi2' in edge_data:
+                # Assign USI values directly to nodes
+                graph.nodes[source]['usi'] = edge_data['usi1']
+                graph.nodes[target]['usi'] = edge_data['usi2']
+                continue
+            
+            # Check if edge has a 'link' attribute for URL-based processing
+            if 'link' not in edge_data:
+                continue
+                
+            edge_link = edge_data['link']
+            
+            # Parse the URL
+            try:
+                parsed_url = urlparse(edge_link)
+                query_params = parse_qs(parsed_url.query, keep_blank_values=True)
+                
+                # Extract usi1 and usi2 values
+                if 'usi1' not in query_params or 'usi2' not in query_params:
+                    continue
+                    
+                usi1_value = query_params['usi1'][0]
+                usi2_value = query_params['usi2'][0]
+                
+                # Assign USI values directly to nodes
+                graph.nodes[source]['usi'] = usi1_value
+                graph.nodes[target]['usi'] = usi2_value
+                
+                # Create source node link (usi1 only)
+                source_params = query_params.copy()
+                source_params.pop('usi2', None)  # Remove usi2
+                source_query = urlencode(source_params, doseq=True)
+                source_link = urlunparse((
+                    parsed_url.scheme,
+                    parsed_url.netloc,
+                    parsed_url.path,
+                    parsed_url.params,
+                    source_query,
+                    parsed_url.fragment
+                ))
+                
+                # Create target node link (usi2 as usi1)
+                target_params = query_params.copy()
+                target_params['usi1'] = [usi2_value]  # Replace usi1 with usi2 value
+                target_params.pop('usi2', None)  # Remove usi2
+                target_query = urlencode(target_params, doseq=True)
+                target_link = urlunparse((
+                    parsed_url.scheme,
+                    parsed_url.netloc,
+                    parsed_url.path,
+                    parsed_url.params,
+                    target_query,
+                    parsed_url.fragment
+                ))
+                
+                # Update node attributes
+                graph.nodes[source]['link'] = source_link
+                graph.nodes[target]['link'] = target_link
+                
+            except Exception as e:
+                # Skip this edge if URL parsing fails, but continue processing others
+                print(f"Warning: Failed to process link for edge {source}->{target}: {str(e)}")
+                continue
     
     @staticmethod
     def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
@@ -66,6 +141,9 @@ class DataLoader:
             if isolated_nodes:
                 print(f"Removed {len(isolated_nodes)} isolated nodes from GraphML network "
                       f"(reduced from {initial_node_count} to {G.number_of_nodes()} nodes)")
+        
+        # Process edge links to update node link attributes
+        # Temporarily disabled - DataLoader._process_graph_links(G)
         
         network = ChemicalNetwork(
             metadata={
@@ -140,6 +218,18 @@ class DataLoader:
             if G.is_multigraph():
                 edge_data = edge_data.copy()
                 edge_data.pop('key', None)
+            else:
+                edge_data = edge_data.copy()
+            
+            # Remove unwanted columns from edge data
+            unwanted_edge_columns = [
+                'spectrum_id_1_y', 'spectrum_id_2_y', 'inv_proba', 'prediction',
+                'charge_1', 'charge_2', 'precursor_intensity_1', 'precursor_intensity_2',
+                'library_smiles_x', 'library_smiles_y', 'cluster_id_1', 'cluster_id_2', 
+                'index', 'component', 'deltamz_int', 'scan1', 'scan2'
+            ]
+            for col in unwanted_edge_columns:
+                edge_data.pop(col, None)
             
             # Extract type if available
             edge_type_str = edge_data.pop('type', 'other').lower()
