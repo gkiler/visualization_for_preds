@@ -142,8 +142,8 @@ class DataLoader:
                 print(f"Removed {len(isolated_nodes)} isolated nodes from GraphML network "
                       f"(reduced from {initial_node_count} to {G.number_of_nodes()} nodes)")
         
-        # Process edge links to update node link attributes
-        # Temporarily disabled - DataLoader._process_graph_links(G)
+        # Process edge links to update node link attributes and assign USI values
+        DataLoader._process_graph_links(G)
         
         network = ChemicalNetwork(
             metadata={

@@ -273,13 +273,14 @@ class ModiFinderUtils:
     
     @staticmethod
     @st.cache_data(ttl=CACHE_TTL)
-    def generate_alignment_image(usi1: str, usi2: str) -> Optional[str]:
+    def generate_alignment_image(usi1: str, usi2: str, **kwargs) -> Optional[str]:
         """
         Generate spectrum alignment image using ModiFinder's draw_alignment function.
         
         Args:
             usi1: First Universal Spectrum Identifier
             usi2: Second Universal Spectrum Identifier
+            **kwargs: Additional parameters for draw_alignment (normalize_peaks, ppm, x_lim, etc.)
             
         Returns:
             Base64 encoded PNG image or None if generation fails
@@ -295,24 +296,49 @@ class ModiFinderUtils:
         try:
             logger.info(f"Attempting to generate alignment for USIs: {usi1[:30]}... vs {usi2[:30]}...")
             
-            # Generate spectrum alignment using ModiFinder
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
-                # Call ModiFinder's draw_alignment function
-                result = mf_viz.draw_alignment(usi1.strip(), usi2.strip())
-                logger.info(f"ModiFinder draw_alignment returned type: {type(result)}")
-                logger.info(f"ModiFinder draw_alignment result attributes: {dir(result)}")
-                
-                # Handle different return types
-                if hasattr(result, 'savefig'):
-                    # It's a matplotlib figure
-                    logger.info("Result is a matplotlib figure, using savefig")
-                    result.savefig(tmp_file.name, format='png', dpi=150, bbox_inches='tight')
-                elif hasattr(result, 'shape'):
-                    # It's a numpy array (image data)
-                    logger.info(f"Result is numpy array with shape: {result.shape}")
-                    from PIL import Image
-                    import numpy as np
+            # Prepare parameters for draw_alignment
+            alignment_params = {
+                'output_type': 'png',
+                'normalize_peaks': kwargs.get('normalize_peaks', True),
+                'size': kwargs.get('size', None),
+                'dpi': kwargs.get('dpi', 300),
+                'draw_mapping_lines': kwargs.get('draw_mapping_lines', True),
+                'ppm': kwargs.get('ppm', 40),
+                'x_lim': kwargs.get('x_lim', None)
+            }
+            
+            # Remove None values
+            alignment_params = {k: v for k, v in alignment_params.items() if v is not None}
+            
+            logger.info(f"Using alignment parameters: {alignment_params}")
+            
+            # Call ModiFinder's draw_alignment function with list of USIs
+            spectrums = [usi1.strip(), usi2.strip()]
+            result = mf_viz.draw_alignment(spectrums, **alignment_params)
+            logger.info(f"ModiFinder draw_alignment returned type: {type(result)}")
+            
+            # Handle different return types
+            if hasattr(result, 'savefig'):
+                # It's a matplotlib figure
+                logger.info("Result is a matplotlib figure, using savefig")
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+                    result.savefig(tmp_file.name, format='png', dpi=alignment_params.get('dpi', 300), bbox_inches='tight')
                     
+                    # Convert to base64
+                    with open(tmp_file.name, 'rb') as img_file:
+                        img_data = img_file.read()
+                        img_base64 = base64.b64encode(img_data).decode('utf-8')
+                        
+                    logger.info(f"Successfully generated alignment image for USIs: {usi1[:30]}... vs {usi2[:30]}...")
+                    return img_base64
+                    
+            elif hasattr(result, 'shape'):
+                # It's a numpy array (image data)
+                logger.info(f"Result is numpy array with shape: {result.shape}")
+                from PIL import Image
+                import numpy as np
+                
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
                     # Convert numpy array to PIL Image and save
                     if result.dtype != np.uint8:
                         # Normalize to 0-255 range if needed
@@ -335,17 +361,38 @@ class ModiFinderUtils:
                         return None
                     
                     img.save(tmp_file.name, format='PNG')
-                else:
-                    logger.error(f"Unknown result type from draw_alignment: {type(result)}")
-                    return None
-                
-                # Convert to base64
-                with open(tmp_file.name, 'rb') as img_file:
-                    img_data = img_file.read()
-                    img_base64 = base64.b64encode(img_data).decode('utf-8')
                     
-                logger.info(f"Successfully generated alignment image for USIs: {usi1[:30]}... vs {usi2[:30]}...")
-                return img_base64
+                    # Convert to base64
+                    with open(tmp_file.name, 'rb') as img_file:
+                        img_data = img_file.read()
+                        img_base64 = base64.b64encode(img_data).decode('utf-8')
+                        
+                    logger.info(f"Successfully generated alignment image for USIs: {usi1[:30]}... vs {usi2[:30]}...")
+                    return img_base64
+                    
+            elif isinstance(result, str):
+                # It might be a file path or base64 string
+                logger.info("Result is a string, attempting to handle as file path or base64")
+                
+                if result.startswith('data:image') or len(result) > 100:
+                    # Looks like base64 or data URL
+                    if result.startswith('data:image'):
+                        # Extract base64 part from data URL
+                        result = result.split(',', 1)[1]
+                    return result
+                else:
+                    # Might be a file path
+                    try:
+                        with open(result, 'rb') as img_file:
+                            img_data = img_file.read()
+                            img_base64 = base64.b64encode(img_data).decode('utf-8')
+                            return img_base64
+                    except Exception as path_error:
+                        logger.error(f"Could not read file path result: {path_error}")
+                        return None
+            else:
+                logger.error(f"Unknown result type from draw_alignment: {type(result)}")
+                return None
                 
         except Exception as e:
             logger.error(f"Error generating alignment image: {e}")
@@ -353,6 +400,36 @@ class ModiFinderUtils:
             import traceback
             logger.error(f"Full traceback: {traceback.format_exc()}")
             return None
+    
+    @staticmethod
+    @st.cache_data(ttl=CACHE_TTL)
+    def generate_edge_alignment_image(edge_data: Dict[str, Any], **kwargs) -> Optional[str]:
+        """
+        Generate spectrum alignment image for an edge using its USI information.
+        
+        Args:
+            edge_data: Dictionary containing edge properties with USI information
+            **kwargs: Additional parameters for draw_alignment
+            
+        Returns:
+            Base64 encoded PNG image or None if generation fails
+        """
+        if not MODIFINDER_AVAILABLE:
+            logger.error("ModiFinder not available for edge alignment generation")
+            return None
+        
+        # Extract USI information from edge data
+        usi1, usi2 = ModiFinderUtils.extract_usis_from_edge_data(edge_data)
+        
+        if not usi1 or not usi2:
+            logger.warning("Could not extract USI information from edge data")
+            logger.debug(f"Available edge data keys: {list(edge_data.keys())}")
+            return None
+        
+        logger.info(f"Generating alignment for edge with USIs: {usi1[:30]}... vs {usi2[:30]}...")
+        
+        # Generate alignment using the extracted USIs
+        return ModiFinderUtils.generate_alignment_image(usi1, usi2, **kwargs)
     
     @staticmethod
     def render_error_placeholder(error_message: str) -> None:
@@ -411,6 +488,10 @@ def generate_molecule_image(smiles: str) -> Optional[str]:
     """Generate molecular structure image using ModiFinder."""
     return ModiFinderUtils.generate_molecule_image(smiles)
 
-def generate_alignment_image(usi1: str, usi2: str) -> Optional[str]:
+def generate_alignment_image(usi1: str, usi2: str, **kwargs) -> Optional[str]:
     """Generate spectrum alignment image using ModiFinder."""
-    return ModiFinderUtils.generate_alignment_image(usi1, usi2)
+    return ModiFinderUtils.generate_alignment_image(usi1, usi2, **kwargs)
+
+def generate_edge_alignment_image(edge_data: Dict[str, Any], **kwargs) -> Optional[str]:
+    """Generate spectrum alignment image for an edge using its USI information."""
+    return ModiFinderUtils.generate_edge_alignment_image(edge_data, **kwargs)

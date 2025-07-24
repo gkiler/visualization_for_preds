@@ -510,48 +510,11 @@ class UIComponents:
         """Render detailed information panel for a selected node."""
         st.subheader(f"Node Details: {node.label}")
         
-        # Field mapping as requested by user
-        field_mappings = {
-            'library_SMILES': 'SMILES',
-            'library_compound_name': 'Compound Name',
-            'library_InChI': 'InChI',
-            'rt': 'Retention Time',
-            'mz': 'Precursor Mass',
-            'library_classfire_superclass': 'ClassyFire Superclass',
-            'library_classyfire_class': 'ClassyFire Class',
-            'library_classyfire_subclass': 'ClassyFire Subclass',
-            'library_npclassifier_superclass': 'npclassifier Super Class',
-            'library_npclassifier_class': 'npclassifier Class',
-            'library_npclassifier_pathway': 'npclassifier Pathway',
-            'SpectrumID': 'Spectrum ID',
-            'Compound_Name': 'Compound Name',
-            'Adduct': 'Adduct',
-            'molecular_formula': 'Molecular Formula'
-        }
-        
         # Display basic node info
         st.markdown(f"**Node ID:** {node.id}")
         st.markdown(f"**Node Type:** {node.node_type.value}")
         
-        # Display mapped fields if they exist in properties
-        st.markdown("### Chemical Properties")
-        displayed_fields = set()
-        
-        for property_key, display_name in field_mappings.items():
-            if property_key in node.properties:
-                value = node.properties[property_key]
-                if value is not None and str(value).strip():
-                    # Special handling for SMILES and InChI to prevent auto-linking
-                    if property_key in ['library_SMILES', 'library_InChI']:
-                        # Use st.code for better formatting of chemical strings
-                        st.markdown(f"**{display_name}:**")
-                        st.code(str(value), language=None)
-                    else:
-                        # Regular markdown for other fields
-                        st.markdown(f"**{display_name}:** {value}")
-                    displayed_fields.add(property_key)
-        
-        # Spectrum and Molecular Visualizations
+        # Spectrum and Molecular Visualizations - MOVED TO TOP
         st.markdown("### Visualizations")
         
         # Import ModiFinder utilities
@@ -645,6 +608,44 @@ class UIComponents:
             # No visualization data available
             st.info("🔬 No spectrum or molecular structure data available for visualization")
         
+        # Chemical Properties - MOVED BELOW VISUALIZATIONS
+        st.markdown("### Chemical Properties")
+        
+        # Field mapping as requested by user
+        field_mappings = {
+            'library_SMILES': 'SMILES',
+            'library_compound_name': 'Compound Name',
+            'library_InChI': 'InChI',
+            'rt': 'Retention Time',
+            'mz': 'Precursor Mass',
+            'library_classfire_superclass': 'ClassyFire Superclass',
+            'library_classyfire_class': 'ClassyFire Class',
+            'library_classyfire_subclass': 'ClassyFire Subclass',
+            'library_npclassifier_superclass': 'npclassifier Super Class',
+            'library_npclassifier_class': 'npclassifier Class',
+            'library_npclassifier_pathway': 'npclassifier Pathway',
+            'SpectrumID': 'Spectrum ID',
+            'Compound_Name': 'Compound Name',
+            'Adduct': 'Adduct',
+            'molecular_formula': 'Molecular Formula'
+        }
+        
+        displayed_fields = set()
+        
+        for property_key, display_name in field_mappings.items():
+            if property_key in node.properties:
+                value = node.properties[property_key]
+                if value is not None and str(value).strip():
+                    # Special handling for SMILES and InChI to prevent auto-linking
+                    if property_key in ['library_SMILES', 'library_InChI']:
+                        # Use st.code for better formatting of chemical strings
+                        st.markdown(f"**{display_name}:**")
+                        st.code(str(value), language=None)
+                    else:
+                        # Regular markdown for other fields
+                        st.markdown(f"**{display_name}:** {value}")
+                    displayed_fields.add(property_key)
+        
         # Display any additional properties not in the mapping
         other_properties = {k: v for k, v in node.properties.items() 
                           if k not in displayed_fields and v is not None and str(v).strip()}
@@ -679,7 +680,72 @@ class UIComponents:
         st.markdown(f"**Edge Type:** {edge.edge_type.value}")
         st.markdown(f"**Weight:** {edge.weight}")
         
-        # Display edge properties
+        # Spectrum Alignment Visualization - MOVED TO TOP
+        st.markdown("### Spectrum Alignment")
+        
+        # Import ModiFinder utilities
+        from ..utils.modifinder_utils import ModiFinderUtils
+        
+        # Get source and target nodes first to extract USI values
+        source_node = network.get_node_by_id(edge.source)
+        target_node = network.get_node_by_id(edge.target)
+        
+        # Extract USI from source node (usi1) and target node (usi2)
+        usi1 = None  # Source node USI
+        usi2 = None  # Target node USI
+        
+        if source_node:
+            # Look for USI in source node properties
+            usi1 = source_node.properties.get('usi') or source_node.properties.get('USI')
+        
+        if target_node:
+            # Look for USI in target node properties  
+            usi2 = target_node.properties.get('usi') or target_node.properties.get('USI')
+        
+        if usi1 and usi2:
+            st.info(f"🔬 Generating spectrum alignment between {edge.source} and {edge.target}")
+            
+            if ModiFinderUtils.is_available():
+                with st.spinner("Generating spectrum alignment visualization..."):
+                    img_base64 = ModiFinderUtils.generate_alignment_image(usi1, usi2)
+                    
+                if img_base64:
+                    ModiFinderUtils.display_image_from_base64(
+                        img_base64, 
+                        f"Spectrum Alignment: {edge.source} ↔ {edge.target}"
+                    )
+                    
+                    # Display USI information
+                    with st.expander("📊 USI Details"):
+                        st.markdown("**USI 1 (Source):**")
+                        st.code(f"...{usi1[-50:]}" if len(usi1) > 50 else usi1, language=None)
+                        st.markdown("**USI 2 (Target):**")
+                        st.code(f"...{usi2[-50:]}" if len(usi2) > 50 else usi2, language=None)
+                else:
+                    ModiFinderUtils.render_error_placeholder("Could not generate spectrum alignment")
+            else:
+                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+        else:
+            st.info("🔬 No USI information found in node data for spectrum alignment")
+            
+            # Show what fields were searched
+            with st.expander("🔍 Debug: Node USI Information"):
+                st.write("Searched for USI data in node properties:")
+                st.code("usi, USI")
+                
+                if source_node:
+                    st.write(f"**Source Node ({edge.source}) properties:**")
+                    st.json(source_node.properties)
+                else:
+                    st.write(f"❌ Source node ({edge.source}) not found")
+                
+                if target_node:
+                    st.write(f"**Target Node ({edge.target}) properties:**")
+                    st.json(target_node.properties)
+                else:
+                    st.write(f"❌ Target node ({edge.target}) not found")
+        
+        # Display edge properties - MOVED BELOW VISUALIZATION
         if edge.properties:
             st.markdown("### Edge Properties")
             for key, value in edge.properties.items():
@@ -695,11 +761,7 @@ class UIComponents:
                         # Regular display
                         st.markdown(f"**{formatted_key}:** {value}")
         
-        # Get source and target nodes
-        source_node = network.get_node_by_id(edge.source)
-        target_node = network.get_node_by_id(edge.target)
-        
-        # Display connected nodes information
+        # Display connected nodes information (nodes already retrieved above)
         st.markdown("### Connected Nodes")
         
         if source_node and target_node:
@@ -730,48 +792,6 @@ class UIComponents:
                     st.code(str(target_node.properties['library_SMILES']), language=None)
         else:
             st.warning("Could not find complete node information for this edge")
-        
-        # Spectrum Alignment Visualization
-        st.markdown("### Spectrum Alignment")
-        
-        # Import ModiFinder utilities
-        from ..utils.modifinder_utils import ModiFinderUtils
-        
-        # Try to extract USI information from edge properties
-        usi1, usi2 = ModiFinderUtils.extract_usis_from_edge_data(edge.properties)
-        
-        if usi1 and usi2:
-            st.info(f"🔬 Generating spectrum alignment between {edge.source} and {edge.target}")
-            
-            if ModiFinderUtils.is_available():
-                with st.spinner("Generating spectrum alignment visualization..."):
-                    img_base64 = ModiFinderUtils.generate_alignment_image(usi1, usi2)
-                    
-                if img_base64:
-                    ModiFinderUtils.display_image_from_base64(
-                        img_base64, 
-                        f"Spectrum Alignment: {edge.source} ↔ {edge.target}"
-                    )
-                    
-                    # Display USI information
-                    with st.expander("📊 USI Details"):
-                        st.markdown("**USI 1:**")
-                        st.code(usi1, language=None)
-                        st.markdown("**USI 2:**")
-                        st.code(usi2, language=None)
-                else:
-                    ModiFinderUtils.render_error_placeholder("Could not generate spectrum alignment")
-            else:
-                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
-        else:
-            st.info("🔬 No USI information found in edge data for spectrum alignment")
-            
-            # Show what fields were searched
-            with st.expander("🔍 Debug: Edge Properties Searched"):
-                st.write("Searched for USI data in these fields:")
-                st.code("url, link, gnps_url, usi_url, spectrum_url, usi1, usi2, USI1, USI2")
-                st.write("Available edge properties:")
-                st.json(edge.properties)
         
         st.markdown("---")
         if st.button("Close Details", key=f"close_edge_details_{edge.source}_{edge.target}"):
