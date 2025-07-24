@@ -174,6 +174,37 @@ class NetworkFilter:
         
         return filtered_nodes, filtered_edges
     
+    def filter_edges_by_molecular_networking(
+        self,
+        network: ChemicalNetwork,
+        molecular_networking_enabled: bool = True,
+        edit_distance_enabled: bool = True
+    ) -> List[ChemicalEdge]:
+        """Filter edges based on molecular networking property values."""
+        if not molecular_networking_enabled and not edit_distance_enabled:
+            return []  # No edges should be shown
+        
+        if molecular_networking_enabled and edit_distance_enabled:
+            return list(network.edges)  # Show all edges
+        
+        filtered_edges = []
+        for edge in network.edges:
+            if "molecular_networking" in edge.properties:
+                try:
+                    mol_net_value = int(edge.properties["molecular_networking"])
+                    if molecular_networking_enabled and mol_net_value == 1:
+                        filtered_edges.append(edge)
+                    elif edit_distance_enabled and mol_net_value == 0:
+                        filtered_edges.append(edge)
+                except (ValueError, TypeError):
+                    # If we can't parse the value, include the edge
+                    filtered_edges.append(edge)
+            else:
+                # If no molecular_networking property, include the edge
+                filtered_edges.append(edge)
+        
+        return filtered_edges
+    
     def apply_multiple_filters(
         self,
         network: ChemicalNetwork,

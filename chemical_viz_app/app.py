@@ -151,12 +151,14 @@ def main():
                     UIComponents.render_error_message(error)
     
     if st.session_state.network:
-        UIComponents.render_network_stats(st.session_state.network)
         
         sidebar_controls = SidebarControls()
         
         # Move Special Filters to the top - check for library_SMILES filter toggle first
         library_smiles_filter = sidebar_controls.render_library_smiles_toggle(st.session_state.network)
+        
+        # Add molecular networking filters
+        molecular_networking_filters = sidebar_controls.render_molecular_networking_filters(st.session_state.network)
         
         # Use default values for removed controls
         viz_controls = {"physics": True, "height": "750px"}
@@ -196,6 +198,39 @@ def main():
                 metadata=st.session_state.network.metadata
             )
         
+        # Apply molecular networking filters
+        filter_handler = NetworkFilter()
+        filtered_edges = filter_handler.filter_edges_by_molecular_networking(
+            st.session_state.filtered_network,
+            molecular_networking_filters.get("molecular_networking", True),
+            molecular_networking_filters.get("edit_distance", True)
+        )
+        
+        # Update the network with filtered edges and corresponding nodes
+        if filtered_edges:
+            edge_node_ids = set()
+            for edge in filtered_edges:
+                edge_node_ids.add(edge.source)
+                edge_node_ids.add(edge.target)
+            
+            filtered_nodes = [
+                node for node in st.session_state.filtered_network.nodes
+                if node.id in edge_node_ids
+            ]
+            
+            st.session_state.filtered_network = ChemicalNetwork(
+                nodes=filtered_nodes,
+                edges=filtered_edges,
+                metadata=st.session_state.network.metadata
+            )
+        else:
+            # If no edges match, keep all nodes but remove all edges
+            st.session_state.filtered_network = ChemicalNetwork(
+                nodes=st.session_state.filtered_network.nodes,
+                edges=[],
+                metadata=st.session_state.network.metadata
+            )
+        
         if selected_nodes and 'neighbor_depth' in st.session_state:
             filter_handler = NetworkFilter()
             nodes, edges = filter_handler.filter_connected_component(
@@ -209,8 +244,8 @@ def main():
                 metadata=st.session_state.network.metadata
             )
         
-        # Create layout columns - adjust the ratio to add space for node details
-        col1, col2, col3 = st.columns([2, 1, 1])
+        # Create layout columns - simplified to 2 columns without middle statistics column
+        col1, col2 = st.columns([3, 1])
         
         with col1:
             st.subheader("Network Visualization")
@@ -278,10 +313,6 @@ def main():
             components.html(postmessage_listener, height=0)
         
         with col2:
-            st.subheader("Network Statistics")
-            UIComponents.render_network_stats(st.session_state.filtered_network)
-        
-        with col3:
             # Display node details if a node is selected
             if 'selected_node_id' in st.session_state and st.session_state.selected_node_id:
                 selected_node = st.session_state.filtered_network.get_node_by_id(st.session_state.selected_node_id)
@@ -291,6 +322,18 @@ def main():
                     st.info("Selected node not found in current filtered network")
             else:
                 st.info("Select a node to view details")
+        
+        # Network Statistics moved to bottom of page
+        st.subheader("Network Statistics")
+        col_stats1, col_stats2 = st.columns(2)
+        
+        with col_stats1:
+            st.write("**Original Network:**")
+            UIComponents.render_network_stats(st.session_state.network)
+            
+        with col_stats2:
+            st.write("**Filtered Network:**")
+            UIComponents.render_network_stats(st.session_state.filtered_network)
         
         UIComponents.render_data_tables(st.session_state.filtered_network)
         

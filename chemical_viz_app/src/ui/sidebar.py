@@ -376,3 +376,39 @@ class SidebarControls:
                 return False
         
         return False
+
+    def render_molecular_networking_filters(self, network: ChemicalNetwork) -> Dict[str, bool]:
+        """Render molecular networking edge filters."""
+        # Check if any edges have molecular_networking property
+        has_molecular_networking = any(
+            "molecular_networking" in edge.properties 
+            for edge in network.edges
+        )
+        
+        filters = {}
+        
+        if has_molecular_networking:
+            with st.sidebar.expander("Molecular Networking Filters", expanded=True):
+                # Molecular Networking Edges (molecular_networking = 1)
+                molecular_networking_enabled = st.checkbox(
+                    "Molecular Networking Edges",
+                    value=True,  # Default on
+                    key="molecular_networking_filter",
+                    help="Show edges with molecular_networking = 1"
+                )
+                filters["molecular_networking"] = molecular_networking_enabled
+                
+                # Edit Distance 1 Predicted Edges (molecular_networking = 0)  
+                edit_distance_enabled = st.checkbox(
+                    "Edit Distance 1 Predicted Edges",
+                    value=True,  # Default on
+                    key="edit_distance_filter", 
+                    help="Show edges with molecular_networking = 0"
+                )
+                filters["edit_distance"] = edit_distance_enabled
+        else:
+            st.info("No edges with molecular_networking property found in the current network.")
+            filters["molecular_networking"] = True
+            filters["edit_distance"] = True
+        
+        return filters
