@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union
 import streamlit as st
 import networkx as nx
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote
 from .models import ChemicalNetwork, ChemicalNode, ChemicalEdge, NodeType, EdgeType
 
 
@@ -280,6 +280,23 @@ class DataLoader:
                     properties[key] = ""
                 else:
                     properties[key] = value
+            
+            # Special handling for modifinder_link - add adduct parameter if adduct_1 exists
+            if 'modifinder_link' in properties and properties['modifinder_link'] and 'adduct_1' in properties:
+                modifinder_link = str(properties['modifinder_link'])
+                adduct_1 = str(properties['adduct_1'])
+                
+                if adduct_1:
+                    # Transform adduct_1: remove "Adduct" and whitespace, add "1" before last "+"
+                    # Example: "[M+H]+ Adduct" -> "[M+H]1+"
+                    adduct_transformed = adduct_1.replace('Adduct', '').strip()
+                    # Find the last '+' and insert '1' before it
+                    if adduct_transformed.endswith('+'):
+                        adduct_transformed = adduct_transformed[:-1] + '1+'
+                    
+                    # Add adduct parameter to URL with proper encoding
+                    separator = '&' if '?' in modifinder_link else '?'
+                    properties['modifinder_link'] = f"{modifinder_link}{separator}adduct={quote(adduct_transformed)}"
             
             edge = ChemicalEdge(
                 source=str(source),

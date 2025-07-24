@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 import pandas as pd
 import re
@@ -718,9 +719,9 @@ class UIComponents:
                     # Display USI information
                     with st.expander("📊 USI Details"):
                         st.markdown("**USI 1 (Source):**")
-                        st.code(f"...{usi1[-50:]}" if len(usi1) > 50 else usi1, language=None)
+                        st.code(usi1, language=None)
                         st.markdown("**USI 2 (Target):**")
-                        st.code(f"...{usi2[-50:]}" if len(usi2) > 50 else usi2, language=None)
+                        st.code(usi2, language=None)
                 else:
                     ModiFinderUtils.render_error_placeholder("Could not generate spectrum alignment")
             else:
@@ -753,8 +754,9 @@ class UIComponents:
                     formatted_key = key.replace('_', ' ').title()
                     # Check if this might be a URL or special data
                     value_str = str(value)
+                    
                     if any(pattern in value_str.lower() for pattern in ['http', 'gnps', 'usi']):
-                        # Likely URL data - use code block for better formatting
+                        # Other URL data - use code block for better formatting
                         st.markdown(f"**{formatted_key}:**")
                         st.code(value_str, language=None)
                     else:
@@ -797,5 +799,58 @@ class UIComponents:
         if st.button("Close Details", key=f"close_edge_details_{edge.source}_{edge.target}"):
             if 'selected_edge_id' in st.session_state:
                 del st.session_state.selected_edge_id
+            st.rerun()
+    
+    @staticmethod
+    def render_modifinder_visualization(modifinder_url: str):
+        """
+        Render ModiFinder visualization in an embedded iframe.
+        
+        Args:
+            modifinder_url: The URL from the edge's modifinder_link property
+        """
+        st.markdown("### 🔬 ModiFinder Spectrum Alignment")
+        
+        # Add some context
+        st.caption("Interactive spectrum alignment visualization from ModiFinder")
+        
+        # Create iframe HTML with responsive design
+        iframe_html = f"""
+        <style>
+            .modifinder-container {{
+                width: 100%;
+                height: 800px;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                background-color: white;
+            }}
+            .modifinder-iframe {{
+                width: 100%;
+                height: 100%;
+                border: none;
+            }}
+        </style>
+        <div class="modifinder-container">
+            <iframe
+                src="{modifinder_url}"
+                class="modifinder-iframe"
+                frameborder="0"
+                loading="lazy"
+                allow="clipboard-write"
+            ></iframe>
+        </div>
+        """
+        
+        # Display the iframe using components.html
+        components.html(iframe_html, height=820)
+        
+        # Add a link to open in new tab
+        st.markdown(f"[🔗 Open in new tab]({modifinder_url})")
+        
+        # Add button to hide the visualization
+        if st.button("Hide Visualization", key="hide_modifinder"):
+            st.session_state.show_modifinder_viz = False
             st.rerun()
     

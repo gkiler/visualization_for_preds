@@ -32,6 +32,9 @@ visualization:
     smooth:
       type: "continuous"
       roundness: 0.5
+    labels:
+      default_column: "delta_mz"  # Default edge label column to delta_mz
+      precision: 3  # Default decimal precision for numeric edge labels
     
 colors:
   node_categories:

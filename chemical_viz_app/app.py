@@ -35,6 +35,10 @@ def initialize_session_state():
             'edge_labels_enabled': False,
             'edge_label_column': 'type'
         }
+    if 'column_ratio' not in st.session_state:
+        st.session_state.column_ratio = [3, 1]  # Default 3:1 ratio for main columns
+    if 'show_modifinder_viz' not in st.session_state:
+        st.session_state.show_modifinder_viz = False
 
 
 def render_node_click_buttons(network: ChemicalNetwork):
@@ -61,6 +65,7 @@ def render_node_click_buttons(network: ChemicalNetwork):
                 ):
                     st.session_state.selected_node_id = node.id
                     st.session_state.selected_edge_id = None  # Clear edge selection
+                    st.session_state.show_modifinder_viz = False  # Reset ModiFinder visualization
                     st.rerun()
 
 
@@ -90,6 +95,7 @@ def render_edge_click_buttons(network: ChemicalNetwork):
                 ):
                     st.session_state.selected_edge_id = edge_id
                     st.session_state.selected_node_id = None  # Clear node selection
+                    st.session_state.show_modifinder_viz = False  # Reset ModiFinder visualization
                     st.rerun()
 
 
@@ -186,6 +192,9 @@ def main():
         
         sidebar_controls = SidebarControls()
         
+        # Add column width control
+        column_ratio = sidebar_controls.render_column_width_control()
+        
         # Move Special Filters to the top - check for library_SMILES filter toggle first
         library_smiles_filter = sidebar_controls.render_library_smiles_toggle(st.session_state.network)
         
@@ -276,8 +285,13 @@ def main():
                 metadata=st.session_state.network.metadata
             )
         
-        # Create layout columns - simplified to 2 columns without middle statistics column
-        col1, col2 = st.columns([3, 1])
+        # Create layout columns - dynamic based on whether edge is selected
+        if st.session_state.selected_edge_id:
+            # Three columns when edge is selected (2:1:1 ratio)
+            col1, col2, col3 = st.columns([2, 1, 1])
+        else:
+            # Two columns using the dynamic ratio from sidebar
+            col1, col2 = st.columns(st.session_state.column_ratio)
         
         with col1:
             st.subheader("Network Visualization")
@@ -451,6 +465,24 @@ def main():
                     st.info("Selected edge not found in current filtered network")
             else:
                 st.info("Select a node or edge to view details")
+        
+        # Third column for ModiFinder visualization (only when edge is selected)
+        if st.session_state.selected_edge_id:
+            with col3:
+                st.subheader("ModiFinder Visualization")
+                
+                # Get the selected edge
+                selected_edge = st.session_state.filtered_network.get_edge_by_id(st.session_state.selected_edge_id)
+                
+                if selected_edge and selected_edge.properties.get('modifinder_link'):
+                    if st.button("Visualize ModiFinder", type="primary", use_container_width=True):
+                        st.session_state.show_modifinder_viz = True
+                    
+                    # Display the iframe if button was clicked
+                    if st.session_state.show_modifinder_viz:
+                        UIComponents.render_modifinder_visualization(selected_edge.properties['modifinder_link'])
+                else:
+                    st.info("No ModiFinder link available for this edge")
         
         # Network Statistics moved to bottom of page
         st.subheader("Network Statistics")

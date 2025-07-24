@@ -231,9 +231,18 @@ class SidebarControls:
             labeling_options["node_label_column"] = node_label_column
         
         with st.sidebar.expander("Edge Labels"):
+            # Check if delta_mz exists in the network
+            has_delta_mz = any(
+                "delta_mz" in edge.properties 
+                for edge in network.edges
+            )
+            
+            # Enable edge labels by default if delta_mz is present
+            default_edge_labels = has_delta_mz
+            
             edge_labels_enabled = st.checkbox(
                 "Enable edge labels",
-                value=False,
+                value=default_edge_labels,
                 key="edge_labels_enabled",
                 help="Show labels on edges (may impact performance on large networks)"
             )
@@ -245,11 +254,21 @@ class SidebarControls:
                 for edge in network.edges:
                     all_edge_columns.update(edge.properties.keys())
                 
+                # Sort columns with delta_mz first if it exists
+                sorted_edge_columns = sorted(all_edge_columns)
+                if 'delta_mz' in sorted_edge_columns:
+                    sorted_edge_columns.remove('delta_mz')
+                    sorted_edge_columns.insert(0, 'delta_mz')
+                
+                # Set default index for delta_mz if it exists, otherwise use first column
+                default_index = 0 if 'delta_mz' in sorted_edge_columns else 0
+                
                 edge_label_column = st.selectbox(
                     "Display column for edges:",
-                    options=sorted(all_edge_columns),
+                    options=sorted_edge_columns,
+                    index=default_index,
                     key="edge_label_column",
-                    help="Choose which column to display as the edge label"
+                    help="Choose which column to display as the edge label (delta_mz formatted to 3 decimals)"
                 )
                 labeling_options["edge_label_column"] = edge_label_column
                 
@@ -412,3 +431,37 @@ class SidebarControls:
             filters["edit_distance"] = True
         
         return filters
+    
+    def render_column_width_control(self) -> List[int]:
+        """Render column width ratio control slider."""
+        st.sidebar.header("Layout Settings")
+        
+        with st.sidebar.expander("Column Width Control", expanded=True):
+            # Get current ratio from session state
+            current_ratio = st.session_state.get('column_ratio', [3, 1])
+            
+            # Single slider for controlling the ratio
+            col1_width = st.slider(
+                "Main Column Width",
+                min_value=1,
+                max_value=5,
+                value=current_ratio[0],
+                key="main_col_width",
+                help="Adjust the relative width of the network visualization column (1-5). The detail panel will use the remaining space."
+            )
+            
+            # Calculate complementary width for second column
+            col2_width = 6 - col1_width  # Total of 6 units for flexibility
+            
+            # Update session state
+            new_ratio = [col1_width, col2_width]
+            st.session_state.column_ratio = new_ratio
+            
+            # Show current ratio
+            st.caption(f"Current ratio: {col1_width}:{col2_width}")
+            
+            # Add info about 3-column layout
+            if 'selected_edge_id' in st.session_state and st.session_state.selected_edge_id:
+                st.info("💡 When an edge is selected, a third column will appear for ModiFinder visualization.")
+            
+            return new_ratio

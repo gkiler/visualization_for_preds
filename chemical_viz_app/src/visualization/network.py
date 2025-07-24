@@ -165,6 +165,13 @@ class NetworkVisualizer:
                     edge_label = edge.edge_type.value
                 elif edge_label_column == 'weight':
                     edge_label = str(edge.weight)
+                elif edge_label_column == 'delta_mz' and 'delta_mz' in edge.properties:
+                    # Format delta_mz with 3 decimal places of precision
+                    try:
+                        delta_mz_value = float(edge.properties['delta_mz'])
+                        edge_label = f"{delta_mz_value:.3f}"
+                    except (TypeError, ValueError):
+                        edge_label = str(edge.properties['delta_mz']) if edge.properties['delta_mz'] is not None else ""
                 elif edge_label_column in edge.properties:
                     edge_label = str(edge.properties[edge_label_column]) if edge.properties[edge_label_column] is not None else ""
                 else:
