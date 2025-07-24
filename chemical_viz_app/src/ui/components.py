@@ -290,9 +290,9 @@ class UIComponents:
                 if value is not None and str(value).strip():
                     # Special handling for SMILES and InChI to prevent auto-linking
                     if property_key in ['library_SMILES', 'library_InChI']:
-                        # Use st.text to display as plain text without link detection
+                        # Use st.code for better formatting of chemical strings
                         st.markdown(f"**{display_name}:**")
-                        st.text(str(value))
+                        st.code(str(value), language=None)
                     else:
                         # Regular markdown for other fields
                         st.markdown(f"**{display_name}:** {value}")
@@ -310,9 +310,9 @@ class UIComponents:
                 value_str = str(value)
                 if any(pattern in value_str.lower() for pattern in ['smiles', 'inchi']) or \
                    any(char in value_str for char in ['=', '+', '-', '(', ')', '[', ']', '@']):
-                    # Likely chemical data - use plain text
+                    # Likely chemical data - use code block for better formatting
                     st.markdown(f"**{formatted_key}:**")
-                    st.text(value_str)
+                    st.code(value_str, language=None)
                 else:
                     # Regular display
                     st.markdown(f"**{formatted_key}:** {value}")
