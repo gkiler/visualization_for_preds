@@ -53,7 +53,10 @@ class NetworkVisualizer:
         for node in nodes:
             color = node.color
             if not color:
-                if node_colors and node.id in node_colors:
+                # Priority 1: Check if node is annotated by user (show in blue)
+                if node.is_annotated():
+                    color = self.config["colors"]["annotation"]["user_annotated"]
+                elif node_colors and node.id in node_colors:
                     color = node_colors[node.id]
                 else:
                     # Apply default library_SMILES coloring if available
@@ -83,7 +86,17 @@ class NetworkVisualizer:
             
             title = f"<b>{display_label}</b><br>"
             title += f"Type: {node.node_type.value}<br>"
+            
+            # Add annotation status to title
+            if node.is_annotated():
+                title += f"<span style='color: #2196F3;'><b>✓ User Annotated</b></span><br>"
+                if 'annotation_timestamp' in node.properties:
+                    title += f"Annotated: {node.properties['annotation_timestamp'][:19]}<br>"
+            
             for key, value in node.properties.items():
+                # Skip internal annotation properties from tooltip
+                if key.startswith('annotation_'):
+                    continue
                 title += f"{key}: {value}<br>"
             
             net.add_node(

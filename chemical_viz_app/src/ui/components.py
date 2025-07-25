@@ -507,6 +507,187 @@ class UIComponents:
         return progress_bar
     
     @staticmethod
+    def _render_smiles_annotation_section(node: 'ChemicalNode'):
+        """Render SMILES annotation section for a node."""
+        from ..utils.annotation_manager import AnnotationManager
+        from ..utils.modifinder_utils import ModiFinderUtils
+        
+        # Initialize annotation manager
+        annotation_manager = AnnotationManager()
+        
+        # Check current SMILES status
+        current_smiles = node.properties.get('library_SMILES', '')
+        has_smiles = current_smiles and str(current_smiles).strip()
+        annotation = annotation_manager.get_annotation(node.id)
+        
+        st.markdown("### SMILES Annotation")
+        
+        # Show current status
+        if node.is_annotated():
+            st.success(f"✅ Node annotated by user")
+            if annotation:
+                st.caption(f"Annotated: {annotation.get('timestamp', 'Unknown time')}")
+            # Debug info
+            st.caption(f"DEBUG: annotation_status = {node.properties.get('annotation_status')}")
+        elif has_smiles:
+            st.info(f"ℹ️ SMILES data available: `{str(current_smiles)[:50]}...`")
+        else:
+            st.warning("⚠️ No SMILES data - annotation needed")
+        
+        # Debug: Show all annotation-related properties
+        with st.expander("🔍 Debug: Node Properties", expanded=False):
+            annotation_props = {k: v for k, v in node.properties.items() if 'annotation' in k.lower() or k == 'library_SMILES'}
+            if annotation_props:
+                st.json(annotation_props)
+            else:
+                st.write("No annotation properties found")
+        
+        # SMILES input form
+        with st.expander("🧪 Add/Edit SMILES", expanded=not has_smiles):
+            # Input field
+            placeholder_text = str(current_smiles) if has_smiles else "Enter SMILES string (e.g., CC(=O)Oc1ccccc1C(=O)O)"
+            
+            # Use session state for the input to enable real-time preview
+            input_key = f"smiles_input_{node.id}"
+            if input_key not in st.session_state:
+                st.session_state[input_key] = str(current_smiles) if has_smiles else ""
+            
+            new_smiles = st.text_input(
+                "SMILES String:",
+                value=st.session_state[input_key],
+                placeholder=placeholder_text,
+                key=f"smiles_field_{node.id}",
+                help="Enter a valid SMILES string for this molecule"
+            )
+            
+            # Update session state
+            st.session_state[input_key] = new_smiles
+            
+            # Real-time preview
+            if new_smiles and new_smiles.strip() and new_smiles != current_smiles:
+                st.markdown("#### Preview:")
+                
+                # Basic SMILES validation
+                if UIComponents._validate_smiles_basic(new_smiles):
+                    # Show molecular structure preview
+                    if ModiFinderUtils.is_available():
+                        try:
+                            with st.spinner("Generating molecular structure preview..."):
+                                img_base64 = ModiFinderUtils.generate_molecule_image(new_smiles.strip())
+                                
+                            if img_base64:
+                                ModiFinderUtils.display_image_from_base64(
+                                    img_base64,
+                                    f"Preview: {node.label}",
+                                    # width=300
+                                )
+                            else:
+                                st.error("Could not generate molecular structure from SMILES")
+                                
+                        except Exception as e:
+                            st.error(f"Error generating preview: {str(e)}")
+                    else:
+                        st.info("ModiFinder not available for preview")
+                        st.code(new_smiles, language=None)
+                else:
+                    st.error("⚠️ Invalid SMILES format")
+            
+            # Action buttons
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("Update SMILES", 
+                           key=f"update_smiles_{node.id}",
+                           type="primary",
+                           disabled=not new_smiles or not new_smiles.strip() or new_smiles == current_smiles):
+                    UIComponents._handle_smiles_update(node, new_smiles.strip())
+            
+            with col2:
+                if st.button("Reset", key=f"reset_smiles_{node.id}"):
+                    st.session_state[input_key] = str(current_smiles) if has_smiles else ""
+                    st.rerun()
+            
+            with col3:
+                if annotation and st.button("Remove Annotation", key=f"remove_annotation_{node.id}"):
+                    annotation_manager.remove_annotation(node.id)
+                    st.success("Annotation removed")
+                    st.rerun()
+    
+    @staticmethod
+    def _validate_smiles_basic(smiles: str) -> bool:
+        """Basic SMILES validation."""
+        if not smiles or not isinstance(smiles, str):
+            return False
+        
+        smiles = smiles.strip()
+        if len(smiles) < 2:
+            return False
+        
+        # Basic character check - SMILES should contain valid characters
+        valid_chars = set('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789()[]{}=#+-.@/\\')
+        if not all(c in valid_chars for c in smiles):
+            return False
+        
+        # Basic bracket matching
+        brackets = {'(': ')', '[': ']', '{': '}'}
+        stack = []
+        for char in smiles:
+            if char in brackets:
+                stack.append(brackets[char])
+            elif char in brackets.values():
+                if not stack or stack.pop() != char:
+                    return False
+        
+        return len(stack) == 0
+    
+    @staticmethod
+    def _handle_smiles_update(node: 'ChemicalNode', new_smiles: str):
+        """Handle SMILES update button click."""
+        from ..utils.annotation_manager import AnnotationManager
+        from datetime import datetime
+        
+        # Initialize annotation manager
+        annotation_manager = AnnotationManager()
+        
+        try:
+            # Get original SMILES
+            original_smiles = node.properties.get('library_SMILES')
+            
+            # Add annotation
+            success = annotation_manager.add_annotation(
+                node.id,
+                new_smiles,
+                original_smiles,
+                {
+                    'node_label': node.label,
+                    'update_method': 'user_input'
+                }
+            )
+            
+            if success:
+                # Store pending update in session state for processing
+                if 'pending_smiles_updates' not in st.session_state:
+                    st.session_state.pending_smiles_updates = {}
+                
+                st.session_state.pending_smiles_updates[node.id] = {
+                    'new_smiles': new_smiles,
+                    'timestamp': datetime.now().isoformat(),
+                    'status': 'pending'
+                }
+                
+                st.success(f"✅ SMILES annotation added for {node.label}")
+                st.info("Click 'Apply Updates' to process the annotation and update connected nodes")
+                
+                # Save annotations
+                annotation_manager.save_annotations_to_file()
+                
+            else:
+                st.error("Failed to add annotation")
+                
+        except Exception as e:
+            st.error(f"Error updating SMILES: {str(e)}")
+    
+    @staticmethod
     def render_node_detail_panel(node: 'ChemicalNode'):
         """Render detailed information panel for a selected node."""
         st.subheader(f"Node Details: {node.label}")
@@ -514,6 +695,9 @@ class UIComponents:
         # Display basic node info
         st.markdown(f"**Node ID:** {node.id}")
         st.markdown(f"**Node Type:** {node.node_type.value}")
+        
+        # SMILES Annotation Section - NEW
+        UIComponents._render_smiles_annotation_section(node)
         
         # Spectrum and Molecular Visualizations - MOVED TO TOP
         st.markdown("### Visualizations")
@@ -749,7 +933,55 @@ class UIComponents:
         # Display edge properties - MOVED BELOW VISUALIZATION
         if edge.properties:
             st.markdown("### Edge Properties")
+            
+            # Check for mass decomposition results first
+            if 'formula_candidates' in edge.properties:
+                st.markdown("#### 🧪 Possible Molecular Formulas")
+                
+                # Display delta_mz value if present
+                delta_mz = edge.properties.get('delta_mz')
+                if delta_mz:
+                    st.markdown(f"**Delta m/z:** {delta_mz:.4f}")
+                
+                # Display primary formula if available
+                primary_formula = edge.properties.get('primary_formula')
+                if primary_formula:
+                    mass_error = edge.properties.get('formula_mass_error_ppm', 0)
+                    confidence = edge.properties.get('formula_confidence', 0)
+                    st.success(f"**Best Match:** {primary_formula} (Error: {mass_error:.2f} ppm, Confidence: {confidence:.1f}%)")
+                
+                # Display all candidates in an expander
+                candidates = edge.properties.get('formula_candidates', [])
+                if candidates:
+                    with st.expander(f"View all {len(candidates)} formula candidates"):
+                        for i, candidate in enumerate(candidates, 1):
+                            if isinstance(candidate, dict):
+                                formula = candidate.get('formula', 'Unknown')
+                                error_ppm = candidate.get('error_ppm', 0)
+                                exact_mass = candidate.get('exact_mass', 0)
+                                score = candidate.get('score', 0)
+                                
+                                col1, col2, col3 = st.columns([2, 1, 1])
+                                with col1:
+                                    st.markdown(f"**{i}. {formula}**")
+                                with col2:
+                                    st.caption(f"Error: {error_ppm:.2f} ppm")
+                                with col3:
+                                    st.caption(f"Score: {score:.1f}")
+                            else:
+                                st.markdown(f"{i}. {candidate}")
+                        
+                        # Add explanation
+                        st.caption("Formulas are ranked by mass accuracy and chemical feasibility rules")
+                
+                st.markdown("---")
+            
+            # Display other properties
             for key, value in edge.properties.items():
+                # Skip mass decomposition fields as they're displayed separately
+                if key in ['formula_candidates', 'primary_formula', 'formula_mass_error_ppm', 'formula_confidence']:
+                    continue
+                    
                 if value is not None and str(value).strip():
                     formatted_key = key.replace('_', ' ').title()
                     # Check if this might be a URL or special data

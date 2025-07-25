@@ -56,6 +56,39 @@ class ChemicalNode:
             size=data.get("size"),
             color=data.get("color")
         )
+    
+    # Annotation-related methods
+    def is_annotated(self) -> bool:
+        """Check if this node has been annotated by user."""
+        return self.properties.get('annotation_status') == 'user_annotated'
+    
+    def get_effective_smiles(self) -> Optional[str]:
+        """Get the effective SMILES (annotated takes precedence over original)."""
+        return self.properties.get('library_SMILES')
+    
+    def has_smiles(self) -> bool:
+        """Check if node has any SMILES data."""
+        smiles = self.get_effective_smiles()
+        return smiles is not None and str(smiles).strip() != ''
+    
+    def set_annotation_status(self, status: str, timestamp: str = None, metadata: Dict[str, Any] = None):
+        """Set annotation status and metadata."""
+        self.properties['annotation_status'] = status
+        if timestamp:
+            self.properties['annotation_timestamp'] = timestamp
+        if metadata:
+            self.properties['annotation_metadata'] = metadata
+    
+    def can_generate_modifinder_links(self) -> bool:
+        """Check if node has required data for ModiFinder link generation.
+        
+        Note: This only checks node-level requirements. Edge-level adduct_1 
+        is checked separately during link generation.
+        """
+        return all([
+            'usi' in self.properties and str(self.properties['usi']).strip(),
+            self.has_smiles()
+        ])
 
 
 @dataclass
@@ -138,6 +171,18 @@ class ChemicalNetwork:
             if edge.source == node_id or edge.target == node_id
         ]
     
+    def get_connected_nodes(self, node_id: str) -> List[ChemicalNode]:
+        """Get all nodes connected to the specified node."""
+        connected_node_ids = set()
+        
+        for edge in self.edges:
+            if edge.source == node_id:
+                connected_node_ids.add(edge.target)
+            elif edge.target == node_id:
+                connected_node_ids.add(edge.source)
+        
+        return [self.get_node_by_id(nid) for nid in connected_node_ids if self.get_node_by_id(nid)]
+    
     def filter_nodes(self, filter_func) -> List[ChemicalNode]:
         return [node for node in self.nodes if filter_func(node)]
     
@@ -167,3 +212,21 @@ class ChemicalNetwork:
             network.add_edge(edge)
         
         return network
+    
+    # Annotation-related methods
+    def get_annotated_nodes(self) -> List[ChemicalNode]:
+        """Get all nodes that have been annotated by users."""
+        return [node for node in self.nodes if node.is_annotated()]
+    
+    def get_nodes_needing_smiles(self) -> List[ChemicalNode]:
+        """Get nodes that are missing SMILES and could benefit from annotation."""
+        return [node for node in self.nodes if not node.has_smiles()]
+    
+    def apply_annotation_to_node(self, node_id: str, smiles: str, timestamp: str = None) -> bool:
+        """Apply SMILES annotation to a specific node."""
+        node = self.get_node_by_id(node_id)
+        if node:
+            node.properties['library_SMILES'] = smiles
+            node.set_annotation_status('user_annotated', timestamp)
+            return True
+        return False

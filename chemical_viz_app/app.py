@@ -11,6 +11,9 @@ from src.visualization.network import NetworkVisualizer
 from src.visualization.filters import NetworkFilter
 from src.ui.components import UIComponents
 from src.ui.sidebar import SidebarControls
+from src.ui.resizable_columns import ResizableColumns
+from src.utils.annotation_manager import AnnotationManager
+from src.data.annotation_processor import AnnotationProcessor
 
 
 def initialize_session_state():
@@ -39,6 +42,9 @@ def initialize_session_state():
         st.session_state.column_ratio = [3, 1]  # Default 3:1 ratio for main columns
     if 'show_modifinder_viz' not in st.session_state:
         st.session_state.show_modifinder_viz = False
+    
+    # Initialize annotation-related session state
+    AnnotationManager.initialize_session_state()
 
 
 def render_node_click_buttons(network: ChemicalNetwork):
@@ -184,11 +190,19 @@ def main():
             if is_valid:
                 st.session_state.network = network
                 st.session_state.filtered_network = network
+                
+                # Load existing annotations
+                annotation_manager = AnnotationManager()
+                annotation_manager.load_annotations_from_file()
+                
             else:
                 for error in errors:
                     UIComponents.render_error_message(error)
     
     if st.session_state.network:
+        # Apply any existing annotations to the base network before filtering
+        annotation_manager = AnnotationManager()
+        st.session_state.network = annotation_manager.apply_annotations_to_network(st.session_state.network)
         
         sidebar_controls = SidebarControls()
         
@@ -287,11 +301,15 @@ def main():
         
         # Create layout columns - dynamic based on whether edge is selected
         if st.session_state.selected_edge_id:
-            # Three columns when edge is selected (2:1:1 ratio)
-            col1, col2, col3 = st.columns([2, 1, 1])
+            # Three columns when edge is selected (2:1:2 ratio - ModiFinder column is twice as wide)
+            col1, col2, col3 = st.columns([2, 1, 2])
+            # Make columns resizable
+            ResizableColumns.render_resizable_columns(3, [2, 1, 2])
         else:
             # Two columns using the dynamic ratio from sidebar
             col1, col2 = st.columns(st.session_state.column_ratio)
+            # Make columns resizable
+            ResizableColumns.render_resizable_columns(2, st.session_state.column_ratio)
         
         with col1:
             st.subheader("Network Visualization")
@@ -483,6 +501,11 @@ def main():
                         UIComponents.render_modifinder_visualization(selected_edge.properties['modifinder_link'])
                 else:
                     st.info("No ModiFinder link available for this edge")
+        
+        # SMILES Annotation Processing Panel
+        st.markdown("---")
+        annotation_processor = AnnotationProcessor()
+        annotation_processor.render_pending_updates_panel()
         
         # Network Statistics moved to bottom of page
         st.subheader("Network Statistics")

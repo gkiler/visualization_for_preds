@@ -41,103 +41,141 @@ class ResizableColumns:
         resize_script = f"""
         <style>
             /* Resizable column styles */
-            .resize-handle {{
+            .column-resize-handle {{
                 position: absolute;
                 top: 0;
-                width: 10px;
-                height: 100%;
+                width: 16px;
+                height: 100vh;
                 cursor: col-resize;
-                background: transparent;
-                z-index: 1000;
-                transition: background-color 0.2s;
+                z-index: 999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-left: -8px;
             }}
             
-            .resize-handle:hover {{
-                background-color: rgba(0, 123, 255, 0.3);
-            }}
-            
-            .resize-handle:active {{
-                background-color: rgba(0, 123, 255, 0.5);
-            }}
-            
-            /* Visual indicator during drag */
-            .resize-handle::after {{
+            .column-resize-handle::before {{
                 content: '';
-                position: absolute;
-                left: 50%;
-                top: 50%;
-                transform: translate(-50%, -50%);
-                width: 2px;
-                height: 40px;
-                background-color: #007bff;
-                opacity: 0;
-                transition: opacity 0.2s;
+                width: 4px;
+                height: 60px;
+                background: #e0e0e0;
+                border-radius: 2px;
+                transition: all 0.2s ease;
             }}
             
-            .resize-handle:hover::after {{
-                opacity: 1;
+            .column-resize-handle:hover::before {{
+                background: #007bff;
+                height: 100px;
+                width: 6px;
+            }}
+            
+            .column-resize-handle:active::before {{
+                background: #0056b3;
+            }}
+            
+            /* Overlay during resize */
+            .resize-overlay {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 998;
+                cursor: col-resize;
+                display: none;
+            }}
+            
+            .resize-overlay.active {{
+                display: block;
             }}
             
             /* Disable text selection during resize */
-            .resizing {{
+            body.resizing {{
                 user-select: none;
                 -webkit-user-select: none;
                 -moz-user-select: none;
                 -ms-user-select: none;
+                cursor: col-resize !important;
+            }}
+            
+            body.resizing * {{
+                cursor: col-resize !important;
             }}
         </style>
         
         <script>
         (function() {{
-            // Wait for Streamlit to render columns
+            let resizeInitialized = false;
+            
             const initResize = () => {{
-                // Find the main container with columns
-                const containers = document.querySelectorAll('[data-testid="column"]');
-                if (containers.length < {num_columns}) {{
+                if (resizeInitialized) return;
+                
+                // Find columns - Streamlit uses data-testid="column"
+                const columns = document.querySelectorAll('[data-testid="column"]');
+                if (columns.length !== {num_columns}) {{
                     // Columns not ready yet, retry
                     setTimeout(initResize, 100);
                     return;
                 }}
                 
-                // Get parent container
-                const parentContainer = containers[0].parentElement;
+                // Get the parent container
+                const parentContainer = columns[0].parentElement;
                 if (!parentContainer) return;
                 
-                // Set initial widths
+                // Mark as initialized
+                resizeInitialized = true;
+                
+                // Create overlay for smooth resizing
+                const overlay = document.createElement('div');
+                overlay.className = 'resize-overlay';
+                document.body.appendChild(overlay);
+                
+                // Set parent container to relative position
+                parentContainer.style.position = 'relative';
+                
+                // Apply initial widths
                 const widths = {width_percentages};
-                containers.forEach((col, idx) => {{
-                    if (idx < widths.length) {{
-                        col.style.flex = `0 0 ${{widths[idx]}}%`;
-                        col.style.maxWidth = `${{widths[idx]}}%`;
-                    }}
+                columns.forEach((col, idx) => {{
+                    col.style.flex = `0 0 ${{widths[idx]}}%`;
+                    col.style.maxWidth = `${{widths[idx]}}%`;
+                    col.style.minWidth = '10%';
+                    col.style.transition = 'none';
                 }});
                 
-                // Create resize handles between columns
+                // Create resize handles
                 for (let i = 0; i < {num_columns - 1}; i++) {{
                     const handle = document.createElement('div');
-                    handle.className = 'resize-handle';
-                    handle.style.left = `${{widths.slice(0, i + 1).reduce((a, b) => a + b, 0)}}%`;
+                    handle.className = 'column-resize-handle';
                     
                     let isResizing = false;
                     let startX = 0;
                     let startWidths = [];
+                    let currentWidths = [...widths];
+                    
+                    // Position handle
+                    const updateHandlePosition = () => {{
+                        const leftOffset = currentWidths.slice(0, i + 1).reduce((a, b) => a + b, 0);
+                        handle.style.left = `${{leftOffset}}%`;
+                    }};
+                    updateHandlePosition();
                     
                     handle.addEventListener('mousedown', (e) => {{
                         isResizing = true;
-                        startX = e.clientX;
-                        startWidths = Array.from(containers).map(col => 
-                            parseFloat(col.style.flex.split(' ')[2]) || 33.33
-                        );
+                        startX = e.pageX;
+                        startWidths = [...currentWidths];
                         
+                        overlay.classList.add('active');
                         document.body.classList.add('resizing');
+                        
                         e.preventDefault();
+                        e.stopPropagation();
                     }});
                     
-                    document.addEventListener('mousemove', (e) => {{
+                    const handleMouseMove = (e) => {{
                         if (!isResizing) return;
                         
-                        const deltaX = e.clientX - startX;
-                        const containerWidth = parentContainer.offsetWidth;
+                        const deltaX = e.pageX - startX;
+                        const containerWidth = parentContainer.getBoundingClientRect().width;
                         const deltaPercent = (deltaX / containerWidth) * 100;
                         
                         // Calculate new widths
@@ -145,42 +183,63 @@ class ResizableColumns:
                         newWidths[i] += deltaPercent;
                         newWidths[i + 1] -= deltaPercent;
                         
-                        // Apply constraints (minimum 10% width)
-                        if (newWidths[i] >= 10 && newWidths[i + 1] >= 10) {{
-                            containers[i].style.flex = `0 0 ${{newWidths[i]}}%`;
-                            containers[i].style.maxWidth = `${{newWidths[i]}}%`;
-                            containers[i + 1].style.flex = `0 0 ${{newWidths[i + 1]}}%`;
-                            containers[i + 1].style.maxWidth = `${{newWidths[i + 1]}}%`;
+                        // Apply constraints (minimum 15% width, maximum 85%)
+                        if (newWidths[i] >= 15 && newWidths[i] <= 85 && 
+                            newWidths[i + 1] >= 15 && newWidths[i + 1] <= 85) {{
                             
-                            // Update handle position
-                            handle.style.left = `${{newWidths.slice(0, i + 1).reduce((a, b) => a + b, 0)}}%`;
+                            // Update column widths
+                            columns[i].style.flex = `0 0 ${{newWidths[i]}}%`;
+                            columns[i].style.maxWidth = `${{newWidths[i]}}%`;
+                            columns[i + 1].style.flex = `0 0 ${{newWidths[i + 1]}}%`;
+                            columns[i + 1].style.maxWidth = `${{newWidths[i + 1]}}%`;
                             
-                            // Store new widths in session state
-                            const widthRatios = newWidths.map(w => Math.round(w / 20)); // Convert to 1-5 scale
-                            window.parent.postMessage({{
-                                type: 'column_resize',
-                                widths: widthRatios
-                            }}, '*');
+                            currentWidths = newWidths;
+                            updateHandlePosition();
+                            
+                            // Update session state (convert to ratio scale)
+                            if ({num_columns} === 2) {{
+                                const ratio1 = Math.round(newWidths[0] / 16.67); // 100/6 ≈ 16.67
+                                const ratio2 = 6 - ratio1;
+                                if (ratio1 >= 1 && ratio1 <= 5) {{
+                                    // Update the slider value
+                                    const slider = window.parent.document.querySelector('[data-testid="stSlider"] input[type="range"]');
+                                    if (slider) {{
+                                        slider.value = ratio1;
+                                        slider.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                        slider.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                    }}
+                                }}
+                            }}
                         }}
-                    }});
+                    }};
                     
-                    document.addEventListener('mouseup', () => {{
+                    const handleMouseUp = () => {{
+                        if (!isResizing) return;
+                        
                         isResizing = false;
+                        overlay.classList.remove('active');
                         document.body.classList.remove('resizing');
-                    }});
+                    }};
                     
-                    // Add handle to parent container
-                    parentContainer.style.position = 'relative';
+                    document.addEventListener('mousemove', handleMouseMove);
+                    document.addEventListener('mouseup', handleMouseUp);
+                    
                     parentContainer.appendChild(handle);
                 }}
             }};
             
-            // Initialize when DOM is ready
-            if (document.readyState === 'loading') {{
-                document.addEventListener('DOMContentLoaded', initResize);
-            }} else {{
-                initResize();
-            }}
+            // Start initialization
+            initResize();
+            
+            // Also reinitialize on window resize
+            let resizeTimeout;
+            window.addEventListener('resize', () => {{
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {{
+                    resizeInitialized = false;
+                    initResize();
+                }}, 250);
+            }});
         }})();
         </script>
         """
@@ -188,31 +247,3 @@ class ResizableColumns:
         # Render the script
         components.html(resize_script, height=0)
     
-    @staticmethod
-    def create_column_listener() -> None:
-        """
-        Create a listener for column resize events to update session state.
-        """
-        listener_script = """
-        <script>
-        window.addEventListener('message', function(event) {
-            if (event.data && event.data.type === 'column_resize') {
-                // Send the new widths back to Streamlit
-                const widths = event.data.widths;
-                
-                // Find and click a hidden button to update session state
-                const button = document.querySelector('[data-testid="update-column-widths"]');
-                if (button) {
-                    // Store widths in a hidden element first
-                    const storage = document.getElementById('column-width-storage');
-                    if (storage) {
-                        storage.value = JSON.stringify(widths);
-                    }
-                    button.click();
-                }
-            }
-        });
-        </script>
-        """
-        
-        components.html(listener_script, height=0)

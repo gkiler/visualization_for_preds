@@ -460,8 +460,11 @@ class SidebarControls:
             # Show current ratio
             st.caption(f"Current ratio: {col1_width}:{col2_width}")
             
+            # Add info about drag resizing
+            st.caption("💡 You can also resize columns by dragging the dividers between them")
+            
             # Add info about 3-column layout
             if 'selected_edge_id' in st.session_state and st.session_state.selected_edge_id:
-                st.info("💡 When an edge is selected, a third column will appear for ModiFinder visualization.")
+                st.info("🔗 Third column is active for ModiFinder visualization")
             
             return new_ratio

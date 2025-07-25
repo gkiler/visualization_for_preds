@@ -299,12 +299,13 @@ class ModiFinderUtils:
             # Prepare parameters for draw_alignment
             alignment_params = {
                 'output_type': 'png',
-                'normalize_peaks': kwargs.get('normalize_peaks', True),
+                'normalize_peaks': True,
                 'size': kwargs.get('size', None),
                 'dpi': kwargs.get('dpi', 300),
-                'draw_mapping_lines': kwargs.get('draw_mapping_lines', True),
+                'draw_mapping_lines': True,
                 'ppm': kwargs.get('ppm', 40),
-                'x_lim': kwargs.get('x_lim', None)
+                'x_lim': kwargs.get('x_lim', None),
+                'flipped': True
             }
             
             # Remove None values
@@ -314,7 +315,7 @@ class ModiFinderUtils:
             
             # Call ModiFinder's draw_alignment function with list of USIs
             spectrums = [usi1.strip(), usi2.strip()]
-            result = mf_viz.draw_alignment(spectrums, **alignment_params)
+            result = mf_viz.draw_alignment(spectrums,matches='default', **alignment_params)
             logger.info(f"ModiFinder draw_alignment returned type: {type(result)}")
             
             # Handle different return types

@@ -48,6 +48,10 @@ colors:
   library_smiles_default:
     contains_oxygen: "#4CAF50"  # Green for SMILES containing 'O'
     no_oxygen: "#9E9E9E"        # Grey for SMILES not containing 'O'
+  
+  # Annotation-specific colors
+  annotation:
+    user_annotated: "#2196F3"   # Blue for user-annotated nodes
     
   edge_types:
     interaction: "#666666"
@@ -68,3 +72,30 @@ data:
   graphml:
     remove_isolated_nodes: true
     unlimited_nodes: true  # No node limit for GraphML files
+
+# Mass decomposition settings for delta_mz analysis
+mass_decomposition:
+  enabled: true
+  tolerance_ppm: 50.0      # Mass tolerance in parts per million
+  tolerance_da: 0.003     # Absolute mass tolerance in Daltons
+  max_formulas: 10        # Maximum formula candidates per mass
+  apply_golden_rules: true # Apply seven golden rules for chemical feasibility
+  cache_enabled: true     # Enable caching of decomposition results
+  
+  # Element ranges for natural products (min, max atom counts)
+  elements:
+    C: [0, 100]   # Carbon
+    H: [0, 200]   # Hydrogen
+    N: [0, 50]    # Nitrogen
+    O: [0, 50]    # Oxygen
+    P: [0, 10]    # Phosphorus
+    S: [0, 10]    # Sulfur
+    F: [0, 20]    # Fluorine
+    Cl: [0, 10]   # Chlorine
+    Br: [0, 5]    # Bromine
+    I: [0, 3]     # Iodine
+  
+  # Performance settings
+  batch_size: 100         # Process edges in batches
+  show_progress: true     # Show progress during processing
+  skip_small_masses: 0.1  # Skip masses below this threshold (Da)
