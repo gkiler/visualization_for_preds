@@ -7,133 +7,10 @@ import streamlit as st
 import networkx as nx
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote
 from .models import ChemicalNetwork, ChemicalNode, ChemicalEdge, NodeType, EdgeType
-from ..utils.mass_decomposition import create_mass_decomposer, MassDecompositionConfig
+# Mass decomposition import removed
 
 
 class DataLoader:
-    
-    @staticmethod
-    def _process_mass_decomposition(network: ChemicalNetwork, config: Dict[str, Any]) -> ChemicalNetwork:
-        """
-        Process mass decomposition for edges with delta_mz values.
-        
-        Args:
-            network: The chemical network to process
-            config: Configuration dictionary
-            
-        Returns:
-            Network with formula annotations added to edge properties
-        """
-        mass_config = config.get("mass_decomposition", {})
-        
-        # Check if mass decomposition is enabled
-        if not mass_config.get("enabled", True):
-            return network
-        
-        # Create mass decomposer with configuration
-        decomp_config = {
-            'tolerance_ppm': mass_config.get('tolerance_ppm', 5.0),
-            'tolerance_da': mass_config.get('tolerance_da', 0.003),
-            'max_formulas': mass_config.get('max_formulas', 10),
-            'apply_golden_rules': mass_config.get('apply_golden_rules', True),
-            'cache_enabled': mass_config.get('cache_enabled', True)
-        }
-        
-        # Convert element ranges from config format to tuple format
-        if 'elements' in mass_config:
-            elements = {}
-            for element, range_list in mass_config['elements'].items():
-                if isinstance(range_list, list) and len(range_list) == 2:
-                    elements[element] = tuple(range_list)
-            decomp_config['elements'] = elements
-        
-        try:
-            decomposer = create_mass_decomposer(decomp_config)
-            
-            # Check if decomposition libraries are available
-            available, libs = decomposer.is_available()
-            if not available:
-                print("Warning: No mass decomposition libraries available (emzed, msbuddy, molmass)")
-                return network
-            
-            print(f"Mass decomposition using libraries: {', '.join(libs)}")
-            
-            # Process edges in batches for performance
-            batch_size = mass_config.get('batch_size', 100)
-            show_progress = mass_config.get('show_progress', True)
-            skip_threshold = mass_config.get('skip_small_masses', 0.1)
-            
-            processed_count = 0
-            skipped_count = 0
-            total_edges = len(network.edges)
-            
-            if show_progress and hasattr(st, 'progress'):
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-            
-            for i, edge in enumerate(network.edges):
-                # Update progress
-                if show_progress and hasattr(st, 'progress') and i % 10 == 0:
-                    progress = i / total_edges
-                    progress_bar.progress(progress)
-                    status_text.text(f"Processing mass decomposition: {i}/{total_edges} edges")
-                
-                # Check for delta_mz in edge properties
-                delta_mz = None
-                for key in ['delta_mz', 'deltamz', 'mass_diff', 'mass_difference']:
-                    if key in edge.properties:
-                        try:
-                            delta_mz = float(edge.properties[key])
-                            break
-                        except (ValueError, TypeError):
-                            continue
-                
-                if delta_mz is None or delta_mz < skip_threshold:
-                    skipped_count += 1
-                    continue
-                
-                # Decompose the mass difference
-                try:
-                    formula_candidates = decomposer.decompose_mass(delta_mz)
-                    
-                    if formula_candidates:
-                        # Store formula candidates in edge properties
-                        edge.properties['formula_candidates'] = [
-                            candidate.to_dict() for candidate in formula_candidates
-                        ]
-                        
-                        # Store the best candidate as the primary formula
-                        best_candidate = formula_candidates[0]
-                        edge.properties['primary_formula'] = best_candidate.formula
-                        edge.properties['formula_mass_error_ppm'] = best_candidate.mass_error_ppm
-                        edge.properties['formula_confidence'] = best_candidate.confidence_score
-                        
-                        processed_count += 1
-                    
-                except Exception as e:
-                    print(f"Error processing mass decomposition for edge {edge.source}-{edge.target}: {e}")
-                    continue
-            
-            # Clear progress indicators
-            if show_progress and hasattr(st, 'progress'):
-                progress_bar.progress(1.0)
-                status_text.text(f"Mass decomposition complete: {processed_count} edges processed, {skipped_count} skipped")
-            
-            print(f"Mass decomposition results: {processed_count} edges processed, {skipped_count} skipped")
-            
-            # Update network metadata
-            network.metadata['mass_decomposition'] = {
-                'processed_edges': processed_count,
-                'skipped_edges': skipped_count,
-                'total_edges': total_edges,
-                'libraries_used': libs,
-                'config': decomp_config
-            }
-            
-        except Exception as e:
-            print(f"Error in mass decomposition processing: {e}")
-        
-        return network
     
     @staticmethod
     def _process_graph_links(graph):
@@ -433,8 +310,12 @@ class DataLoader:
             )
             network.add_edge(edge)
         
-        # Process mass decomposition for delta_mz values if enabled
-        network = DataLoader._process_mass_decomposition(network, config)
+        # Process mass decomposition for delta_mz values
+        try:
+            from ..utils.mass_decomposition import process_network_mass_decomposition
+            process_network_mass_decomposition(network, tolerance_da=0.1)
+        except Exception as e:
+            print(f"Mass decomposition error: {e}")
         
         return network
     

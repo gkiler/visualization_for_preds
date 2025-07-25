@@ -941,45 +941,38 @@ class UIComponents:
                 # Display delta_mz value if present
                 delta_mz = edge.properties.get('delta_mz')
                 if delta_mz:
-                    st.markdown(f"**Delta m/z:** {delta_mz:.4f}")
-                
-                # Display primary formula if available
+                    st.markdown(f"**Delta m/z:** {float(delta_mz):.4f} Da")
+                    
+                # Display primary formula
                 primary_formula = edge.properties.get('primary_formula')
                 if primary_formula:
-                    mass_error = edge.properties.get('formula_mass_error_ppm', 0)
-                    confidence = edge.properties.get('formula_confidence', 0)
-                    st.success(f"**Best Match:** {primary_formula} (Error: {mass_error:.2f} ppm, Confidence: {confidence:.1f}%)")
+                    mass_error = edge.properties.get('formula_mass_error', 0)
+                    mass_error_ppm = edge.properties.get('formula_mass_error_ppm', 0)
+                    st.success(f"**Best Match:** {primary_formula} (Error: {mass_error:.4f} Da, {mass_error_ppm:.1f} ppm)")
                 
-                # Display all candidates in an expander
+                # Display all candidates
                 candidates = edge.properties.get('formula_candidates', [])
-                if candidates:
+                if len(candidates) > 1:
                     with st.expander(f"View all {len(candidates)} formula candidates"):
                         for i, candidate in enumerate(candidates, 1):
-                            if isinstance(candidate, dict):
-                                formula = candidate.get('formula', 'Unknown')
-                                error_ppm = candidate.get('error_ppm', 0)
-                                exact_mass = candidate.get('exact_mass', 0)
-                                score = candidate.get('score', 0)
-                                
-                                col1, col2, col3 = st.columns([2, 1, 1])
-                                with col1:
-                                    st.markdown(f"**{i}. {formula}**")
-                                with col2:
-                                    st.caption(f"Error: {error_ppm:.2f} ppm")
-                                with col3:
-                                    st.caption(f"Score: {score:.1f}")
-                            else:
-                                st.markdown(f"{i}. {candidate}")
-                        
-                        # Add explanation
-                        st.caption("Formulas are ranked by mass accuracy and chemical feasibility rules")
+                            formula = candidate.get('formula', 'Unknown')
+                            error_da = candidate.get('mass_error', 0)
+                            error_ppm = candidate.get('mass_error_ppm', 0)
+                            
+                            col1, col2, col3 = st.columns([2, 1, 1])
+                            with col1:
+                                st.markdown(f"**{i}. {formula}**")
+                            with col2:
+                                st.caption(f"{error_da:.4f} Da")
+                            with col3:
+                                st.caption(f"{error_ppm:.1f} ppm")
                 
                 st.markdown("---")
             
             # Display other properties
             for key, value in edge.properties.items():
                 # Skip mass decomposition fields as they're displayed separately
-                if key in ['formula_candidates', 'primary_formula', 'formula_mass_error_ppm', 'formula_confidence']:
+                if key in ['formula_candidates', 'primary_formula', 'formula_mass_error', 'formula_mass_error_ppm']:
                     continue
                     
                 if value is not None and str(value).strip():

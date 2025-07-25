@@ -9,6 +9,4 @@ Pillow>=10.0.0
 plotly>=5.17.0
 lxml>=4.9.0
 modifinder
-emzed>=2.29.0
 msbuddy>=0.1.1
-molmass>=2023.8.10
