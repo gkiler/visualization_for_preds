@@ -161,15 +161,19 @@ class AnnotationProcessor:
         results = {
             'count': 0,
             'edge_ids': [],
-            'errors': []
+            'errors': [],
+            'skipped_no_usi': 0,
+            'skipped_no_adduct': 0,
+            'total_edges_checked': 0
         }
         
         # Get all edges connected to the annotated node
         connected_edges = network.get_edges_for_node(annotated_node.id)
-        print(f"DEBUG: Found {len(connected_edges)} edges connected to {annotated_node.id}")
         
         for edge in connected_edges:
             try:
+                results['total_edges_checked'] += 1
+                
                 # Determine which node is which
                 if edge.source == annotated_node.id:
                     primary_node = annotated_node
@@ -181,14 +185,16 @@ class AnnotationProcessor:
                 if not secondary_node:
                     continue
                 
-                # Check if we can generate ModiFinder link
-                can_generate = self.link_generator.can_generate_link(primary_node, secondary_node, new_smiles, edge)
-                print(f"DEBUG: Can generate link for {edge.source}-{edge.target}? {can_generate}")
+                # Check what's missing before attempting generation
+                secondary_usi = secondary_node.properties.get('usi')
+                edge_adduct = edge.properties.get('adduct_1') if edge else None
+                node_adduct = primary_node.properties.get('adduct_1')
                 
-                if can_generate:
-                    print(f"DEBUG: Primary node USI: {primary_node.properties.get('usi')}")
-                    print(f"DEBUG: Secondary node USI: {secondary_node.properties.get('usi')}")
-                    print(f"DEBUG: Edge adduct_1: {edge.properties.get('adduct_1')}")
+                # Track specific reasons for skipping
+                if not (secondary_usi and str(secondary_usi).strip()):
+                    results['skipped_no_usi'] += 1
+                elif not ((edge_adduct and str(edge_adduct).strip()) or (node_adduct and str(node_adduct).strip())):
+                    results['skipped_no_adduct'] += 1
                 
                 # Generate ModiFinder link
                 modifinder_link = self.link_generator.generate_modifinder_link(
@@ -197,10 +203,6 @@ class AnnotationProcessor:
                     new_smiles,
                     edge
                 )
-                
-                print(f"DEBUG: Generated ModiFinder link for {edge.source}-{edge.target}: {modifinder_link is not None}")
-                if modifinder_link:
-                    print(f"DEBUG: Link length: {len(modifinder_link)}")
                 
                 if modifinder_link:
                     # Update edge properties
@@ -211,13 +213,21 @@ class AnnotationProcessor:
                     results['count'] += 1
                     edge_id = f"{edge.source}-{edge.target}"
                     results['edge_ids'].append(edge_id)
-                    print(f"DEBUG: Added ModiFinder link to edge {edge_id}")
-                else:
-                    print(f"DEBUG: No ModiFinder link generated for {edge.source}-{edge.target}")
                 
             except Exception as e:
                 error_msg = f"Edge {edge.source}-{edge.target}: {str(e)}"
                 results['errors'].append(error_msg)
+        
+        # Print summary
+        print(f"DEBUG: ModiFinder link generation summary:")
+        print(f"  ✅ Links created: {results['count']}")
+        print(f"  ❌ Skipped (no USI): {results['skipped_no_usi']}")
+        print(f"  ❌ Skipped (no adduct): {results['skipped_no_adduct']}")
+        print(f"  📊 Total edges checked: {results['total_edges_checked']}")
+        
+        if results['skipped_no_usi'] > 0:
+            print(f"  ℹ️  {results['skipped_no_usi']} connections skipped because connected nodes lack spectrum data (USI)")
+            print(f"      This is normal for unannotated nodes without experimental spectra")
         
         return results
     
@@ -241,8 +251,15 @@ class AnnotationProcessor:
         # Mark nodes as annotated (blue color)
         self._mark_annotated_nodes(updated_network)
         
-        # Save annotation state
-        self.annotation_manager.save_annotations_to_file()
+        # Save annotation state to current project
+        # Try to get GraphML filename from session state or use fallback
+        graphml_filename = getattr(st.session_state, 'current_graphml_filename', None)
+        if self.annotation_manager.save_current_project(graphml_filename):
+            print("DEBUG: Annotations saved to current project")
+        else:
+            # Fallback to legacy saving
+            print("DEBUG: Using fallback annotation saving")
+            self.annotation_manager.save_annotations_to_file()
         
         return results
     
@@ -375,3 +392,70 @@ class AnnotationProcessor:
         
         else:
             st.info("No pending SMILES annotations")
+    
+    def generate_modifinder_links_for_existing_annotations(self, network: ChemicalNetwork) -> Dict[str, Any]:
+        """
+        Generate ModiFinder links for all nodes that already have SMILES annotations.
+        
+        This is used when loading GraphML files to create ModiFinder links for nodes
+        that were previously annotated but don't have the links generated yet.
+        
+        Args:
+            network: The chemical network
+            
+        Returns:
+            Dictionary with generation results
+        """
+        results = {
+            'links_created': 0,
+            'total_annotated_nodes': 0,
+            'errors': [],
+            'nodes_processed': []
+        }
+        
+        # Find all nodes that have SMILES data (annotated or original)
+        annotated_nodes = []
+        for node in network.nodes:
+            if node.has_smiles():
+                annotated_nodes.append(node)
+                results['total_annotated_nodes'] += 1
+        
+        print(f"DEBUG: Found {len(annotated_nodes)} nodes with SMILES data for ModiFinder link generation")
+        
+        # Generate ModiFinder links for each annotated node
+        for node in annotated_nodes:
+            try:
+                smiles = node.get_effective_smiles()
+                if not smiles:
+                    continue
+                
+                print(f"DEBUG: Processing node {node.id} with SMILES: {smiles[:30]}...")
+                
+                # Generate links for this node's connections
+                node_results = self._generate_modifinder_links_for_node(
+                    network, 
+                    node, 
+                    smiles
+                )
+                
+                results['links_created'] += node_results['count']
+                results['nodes_processed'].append(node.id)
+                
+                if node_results['errors']:
+                    results['errors'].extend(node_results['errors'])
+                
+                print(f"DEBUG: Generated {node_results['count']} links for node {node.id}")
+                
+            except Exception as e:
+                error_msg = f"Node {node.id}: {str(e)}"
+                results['errors'].append(error_msg)
+                print(f"ERROR: {error_msg}")
+        
+        print(f"DEBUG: ModiFinder bulk generation complete:")
+        print(f"  ✅ Total annotated nodes: {results['total_annotated_nodes']}")
+        print(f"  ✅ Nodes processed: {len(results['nodes_processed'])}")
+        print(f"  ✅ Links created: {results['links_created']}")
+        if results['errors']:
+            print(f"  ❌ Errors: {len(results['errors'])}")
+        
+        return results

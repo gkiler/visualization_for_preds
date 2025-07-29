@@ -146,10 +146,69 @@ def load_network_data(upload_data):
                 graphml_path = tmp_graphml.name
             
             network = DataLoader.load_network_from_graphml(graphml_path)
+            
+            # Set current project for new GraphML uploads
+            annotation_manager = AnnotationManager()
+            annotation_manager.set_current_project(graphml_file.name)
+            
+            # Store GraphML filename in session state for later use
+            st.session_state.current_graphml_filename = graphml_file.name
+            
+            # MISSING STEP 1: Apply existing user annotations to network
+            print(f"DEBUG: Applying existing annotations to network...")
+            original_annotations = len([n for n in network.nodes if n.properties.get('annotation_status') == 'user_annotated'])
+            
+            try:
+                network = annotation_manager.apply_annotations_to_network(network)
+                applied_annotations = len([n for n in network.nodes if n.properties.get('annotation_status') == 'user_annotated'])
+                print(f"DEBUG: Applied {applied_annotations - original_annotations} user annotations to network")
+                
+                # MISSING STEP 2: Generate ModiFinder links for annotated nodes
+                from .src.data.annotation_processor import AnnotationProcessor
+                processor = AnnotationProcessor()
+                modifinder_results = processor.generate_modifinder_links_for_existing_annotations(network)
+                print(f"DEBUG: Generated {modifinder_results['links_created']} ModiFinder links for annotated nodes")
+                
+            except Exception as e:
+                print(f"DEBUG: Error during annotation processing: {str(e)}")
+                # Set default values for display
+                applied_annotations = original_annotations
+                modifinder_results = {'links_created': 0}
+            
             UIComponents.render_success_message(
-                f"GraphML file loaded successfully! Detected {len(network.nodes)} nodes and {len(network.edges)} edges with attributes."
+                f"GraphML file loaded successfully! Detected {len(network.nodes)} nodes and {len(network.edges)} edges with attributes. Applied {applied_annotations - original_annotations} annotations and generated {modifinder_results['links_created']} ModiFinder links."
             )
             return network
+        
+        elif upload_data[0] == "project":
+            _, project_filename = upload_data
+            
+            # Load the project annotations
+            annotation_manager = AnnotationManager()
+            success = annotation_manager.load_project(project_filename)
+            
+            if success:
+                # Load project data
+                project_path = annotation_manager.annotations_dir / project_filename
+                with open(project_path, 'r') as f:
+                    project_data = json.load(f)
+                
+                graphml_source = project_data.get('graphml_source', 'Unknown')
+                annotation_count = len(project_data.get('annotations', {}))
+                
+                UIComponents.render_success_message(
+                    f"Project loaded successfully! {annotation_count} annotations restored from {graphml_source}"
+                )
+                
+                # Note: We return None here because the project only contains annotations
+                # The user needs to upload the corresponding GraphML file or we need to store it
+                UIComponents.render_info_message(
+                    "Project annotations loaded. Please upload the corresponding GraphML file to visualize the network."
+                )
+                return None
+            else:
+                UIComponents.render_error_message(f"Failed to load project: {project_filename}")
+                return None
     
     except Exception as e:
         UIComponents.render_error_message(f"Error loading data: {str(e)}")

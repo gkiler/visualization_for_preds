@@ -84,6 +84,26 @@ class ModiFinderLinkGenerator:
         else:
             adduct = node1.properties.get('adduct_1')
         
+        # Debug: Enhanced validation logging
+        missing_fields = []
+        if not (node1_usi and str(node1_usi).strip()):
+            missing_fields.append("node1_usi")
+        if not (node2_usi and str(node2_usi).strip()):
+            missing_fields.append("node2_usi")
+        if not (adduct and str(adduct).strip()):
+            missing_fields.append("adduct")
+        if not (smiles and str(smiles).strip()):
+            missing_fields.append("smiles")
+        
+        if missing_fields:
+            # Only show detailed info for USI issues (most common)
+            if 'node2_usi' in missing_fields and not node2.properties.get('smiles'):
+                print(f"  ℹ️  Skipping {node1.id}→{node2.id}: connected node lacks spectrum data (normal for unannotated nodes)")
+            elif missing_fields:
+                print(f"  ⚠️  Cannot generate ModiFinder link {node1.id}→{node2.id}: missing {missing_fields}")
+            
+            return False
+        
         # We need USI for both nodes, adduct from edge, and SMILES
         return all([
             node1_usi and str(node1_usi).strip(),
@@ -118,15 +138,6 @@ class ModiFinderLinkGenerator:
         """
         # Check if we can generate the link
         if not cls.can_generate_link(node1, node2, smiles, edge):
-            print(f"DEBUG ModiFinder: Cannot generate link - missing required data")
-            print(f"  Node1 USI: {node1.properties.get('usi')}")
-            print(f"  Node2 USI: {node2.properties.get('usi')}")
-            if edge and 'adduct_1' in edge.properties:
-                print(f"  Edge adduct_1: {edge.properties.get('adduct_1')}")
-            else:
-                print(f"  Node1 adduct_1: {node1.properties.get('adduct_1')}")
-                print(f"  Edge provided: {edge is not None}")
-            print(f"  SMILES: {smiles[:20] if smiles else 'None'}...")
             return None
         
         try:
@@ -157,13 +168,6 @@ class ModiFinderLinkGenerator:
                 f"filter_peaks_variable={filter_peaks_variable}&"
                 f"SMILES1={clean_smiles}"
             )
-            
-            print(f"DEBUG ModiFinder: Successfully generated link")
-            print(f"  USI1: {usi1}")
-            print(f"  USI2: {usi2}")
-            print(f"  Adduct: {adduct}")
-            print(f"  SMILES: {clean_smiles[:30]}...")
-            print(f"  Link: {link[:100]}...")
             
             return link
             

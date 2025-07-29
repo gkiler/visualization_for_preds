@@ -1,0 +1,17 @@
+{
+  "annotations": {
+    "node_123": {
+      "node_id": "node_123",
+      "original_smiles": null,
+      "new_smiles": "CCO",
+      "timestamp": "2025-07-29T11:19:39.975499",
+      "status": "pending",
+      "metadata": {
+        "test": true
+      }
+    }
+  },
+  "last_update": "2025-07-29T11:19:39.975501",
+  "saved_at": "2025-07-29T11:19:39.975505",
+  "graphml_source": "my_network.graphml"
+}

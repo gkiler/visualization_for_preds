@@ -25,7 +25,7 @@ def decompose_mass(mass: float, tolerance_da: float = 0.1) -> List[Dict[str, Any
             mass_tol=tolerance_da,
             ppm=False,  # Using Da, not ppm
         )
-        
+
         # Convert to simple dictionaries
         candidates = []
         for result in formula_results:

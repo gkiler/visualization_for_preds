@@ -186,23 +186,165 @@ class UIComponents:
         .stFileUploader > div {
             background-color: white !important;
         }
+        .stFileUploader > div > div {
+            background-color: white !important;
+        }
+        .stFileUploader * {
+            background-color: white !important;
+            color: black !important;
+        }
         [data-testid="stFileUploader"] {
             background-color: white !important;
         }
+        [data-testid="stFileUploader"] > div {
+            background-color: white !important;
+        }
+        [data-testid="stFileUploader"] * {
+            background-color: white !important;
+            color: black !important;
+        }
         
         /* Dropdown/selectbox styling - white background */
+        .stSelectbox {
+            background-color: white !important;
+        }
+        .stSelectbox > div {
+            background-color: white !important;
+        }
         .stSelectbox > div > div {
             background-color: white !important;
             border: 1px solid #ced4da;
             border-radius: 4px;
             color: black !important;
         }
+        .stSelectbox > div > div > div {
+            background-color: white !important;
+            color: black !important;
+        }
         .stSelectbox > div > div:focus-within {
             border-color: #007bff;
             box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
         }
+        .stSelectbox * {
+            background-color: white !important;
+            color: black !important;
+        }
         [data-testid="stSelectbox"] {
             background-color: white !important;
+        }
+        [data-testid="stSelectbox"] > div {
+            background-color: white !important;
+        }
+        [data-testid="stSelectbox"] * {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        /* Additional dropdown menu styling */
+        .stSelectbox [role="listbox"] {
+            background-color: white !important;
+            border: 1px solid #ced4da;
+        }
+        .stSelectbox [role="option"] {
+            background-color: white !important;
+            color: black !important;
+        }
+        .stSelectbox [role="option"]:hover {
+            background-color: #f8f9fa !important;
+            color: black !important;
+        }
+        
+        /* Target the dropdown overlay and options more specifically */
+        div[data-baseweb="select"] {
+            background-color: white !important;
+        }
+        div[data-baseweb="select"] > div {
+            background-color: white !important;
+            color: black !important;
+        }
+        div[data-baseweb="select"] * {
+            background-color: white !important;
+            color: black !important;
+        }
+        div[data-baseweb="popover"] {
+            background-color: white !important;
+        }
+        div[data-baseweb="popover"] > div {
+            background-color: white !important;
+            color: black !important;
+        }
+        div[data-baseweb="popover"] * {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        /* More specific dropdown menu targeting */
+        .css-1wa3eu0-placeholder {
+            color: black !important;
+        }
+        .css-1uccc91-singleValue {
+            color: black !important;
+        }
+        .css-26l3qy-menu {
+            background-color: white !important;
+        }
+        .css-4ljt47-MenuList {
+            background-color: white !important;
+        }
+        .css-1n7v3ny-option {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        /* Comprehensive dropdown menu styling - catch all variations */
+        [class*="css-"][class*="menu"] {
+            background-color: white !important;
+        }
+        [class*="css-"][class*="option"] {
+            background-color: white !important;
+            color: black !important;
+        }
+        [class*="css-"][class*="MenuList"] {
+            background-color: white !important;
+        }
+        
+        /* Target any div that looks like a dropdown menu */
+        div[role="listbox"],
+        div[role="menu"],
+        div[role="combobox"],
+        ul[role="listbox"],
+        ul[role="menu"] {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        div[role="listbox"] *,
+        div[role="menu"] *,
+        div[role="combobox"] *,
+        ul[role="listbox"] *,
+        ul[role="menu"] * {
+            background-color: white !important;
+            color: black !important;
+        }
+        
+        /* Catch any element with option role */
+        [role="option"] {
+            background-color: white !important;
+            color: black !important;
+        }
+        [role="option"]:hover,
+        [role="option"]:focus {
+            background-color: #f8f9fa !important;
+            color: black !important;
+        }
+        
+        /* Nuclear option - target any element inside stSelectbox */
+        .stSelectbox div,
+        .stSelectbox span,
+        .stSelectbox ul,
+        .stSelectbox li {
+            background-color: white !important;
+            color: black !important;
         }
         
         /* Radio button styling - white background */
@@ -395,8 +537,8 @@ class UIComponents:
         with st.expander("Load Network Data", expanded=True):
             upload_type = st.radio(
                 "Choose your data source:",
-                ["Upload GraphML File", "Use Sample Data"],
-                help="GraphML files preserve all node and edge attributes from network analysis tools. Sample data provides a quick way to explore the interface."
+                ["Upload GraphML File", "Load Previous Project", "Use Sample Data"],
+                help="GraphML files preserve all node and edge attributes. Previous projects restore your annotations."
             )
             
             if upload_type == "Upload GraphML File":
@@ -417,6 +559,40 @@ class UIComponents:
                 
                 if graphml_file:
                     return ("graphml", graphml_file)
+                    
+            elif upload_type == "Load Previous Project":
+                st.markdown("""
+                <div class="detail-panel">
+                    <p><strong>Previous Projects:</strong> Load your saved work with annotations</p>
+                    <p>Select from previously worked on GraphML files with your SMILES annotations</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Import here to avoid circular imports
+                from ..utils.annotation_manager import AnnotationManager
+                annotation_manager = AnnotationManager()
+                
+                # Get available projects
+                projects = annotation_manager.get_available_projects()
+                
+                if not projects:
+                    st.info("No previous projects found. Upload a GraphML file and annotate some nodes to create your first project.")
+                else:
+                    # Create options for dropdown
+                    project_options = {}
+                    for project in projects:
+                        display_name = f"{project['graphml_source']} ({project['annotation_count']} annotations) - {project['saved_at'][:16]}"
+                        project_options[display_name] = project['filename']
+                    
+                    selected_display = st.selectbox(
+                        "Select a previous project:",
+                        options=list(project_options.keys()),
+                        help="Projects are named after the original GraphML file and show creation time"
+                    )
+                    
+                    if selected_display and st.button("Load Selected Project", use_container_width=True):
+                        selected_filename = project_options[selected_display]
+                        return ("project", selected_filename)
             
             elif upload_type == "Use Sample Data":
                 st.markdown("""
@@ -545,9 +721,19 @@ class UIComponents:
         with st.expander("Export Data and Visualizations", expanded=False):
             st.markdown("### Export Formats")
             
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
+                st.markdown("""
+                <div class="detail-panel">
+                    <h4>Annotated GraphML</h4>
+                    <p>Export GraphML file including all your SMILES annotations</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("Export GraphML + Annotations", key="export_annotated_graphml", use_container_width=True):
+                    UIComponents._handle_graphml_export()
+            
+            with col2:
                 st.markdown("""
                 <div class="detail-panel">
                     <h4>Interactive Visualization</h4>
@@ -557,7 +743,7 @@ class UIComponents:
                 if st.button("Export as HTML", key="export_html", use_container_width=True):
                     st.info("HTML export functionality will be implemented")
             
-            with col2:
+            with col3:
                 st.markdown("""
                 <div class="detail-panel">
                     <h4>Static Image</h4>
@@ -567,7 +753,7 @@ class UIComponents:
                 if st.button("Export as PNG", key="export_png", use_container_width=True):
                     st.info("PNG export functionality will be implemented")
             
-            with col3:
+            with col4:
                 st.markdown("""
                 <div class="detail-panel">
                     <h4>Raw Data</h4>
@@ -576,6 +762,68 @@ class UIComponents:
                 """, unsafe_allow_html=True)
                 if st.button("Export Network Data", key="export_data", use_container_width=True):
                     st.info("Data export functionality will be implemented")
+    
+    @staticmethod
+    def _handle_graphml_export():
+        """Handle GraphML export with annotations."""
+        if 'network' not in st.session_state or not st.session_state.network:
+            st.error("No network loaded. Please load a GraphML file first.")
+            return
+        
+        try:
+            from ..utils.annotation_manager import AnnotationManager
+            
+            annotation_manager = AnnotationManager()
+            network = st.session_state.network
+            
+            # First, ensure all annotations are applied to the network
+            network_with_annotations = annotation_manager.apply_annotations_to_network(network)
+            
+            # Export to GraphML
+            with st.spinner("Exporting annotated GraphML file..."):
+                output_path = annotation_manager.export_annotated_graphml(network_with_annotations)
+            
+            # Count annotations for user feedback
+            annotated_nodes = [n for n in network_with_annotations.nodes 
+                             if n.properties.get('annotation_status') == 'user_annotated']
+            
+            # Read the file for download
+            with open(output_path, 'rb') as f:
+                graphml_data = f.read()
+            
+            # Provide download button
+            filename = output_path.split('/')[-1]  # Get just the filename
+            st.download_button(
+                label=f"📥 Download {filename}",
+                data=graphml_data,
+                file_name=filename,
+                mime="application/xml",
+                use_container_width=True
+            )
+            
+            st.success(f"✅ GraphML exported successfully!")
+            st.info(f"📊 Included {len(annotated_nodes)} user annotations in {len(network_with_annotations.nodes)} nodes")
+            
+            # Show some details about what's included
+            if len(annotated_nodes) > 0:
+                with st.expander("Annotation Details", expanded=False):
+                    st.write("**Annotated nodes:**")
+                    for node in annotated_nodes[:10]:  # Show first 10
+                        smiles = node.properties.get('library_SMILES', 'Unknown')
+                        st.write(f"- {node.label} ({node.id}): `{smiles[:50]}...`")
+                    if len(annotated_nodes) > 10:
+                        st.write(f"... and {len(annotated_nodes) - 10} more")
+            
+            # Clean up temporary file
+            import os
+            try:
+                os.remove(output_path)
+            except:
+                pass  # Don't worry if cleanup fails
+                
+        except Exception as e:
+            st.error(f"❌ Export failed: {str(e)}")
+            print(f"ERROR: GraphML export failed: {str(e)}")
     
     @staticmethod
     def render_error_message(error: str):
@@ -769,10 +1017,31 @@ class UIComponents:
                 }
                 
                 st.success(f"SMILES annotation added for {node.label}")
-                st.info("Click 'Apply Updates' to process the annotation and update connected nodes")
                 
-                # Save annotations
-                annotation_manager.save_annotations_to_file()
+                # Auto-process the annotation immediately to generate ModiFinder links
+                from ..data.annotation_processor import AnnotationProcessor
+                processor = AnnotationProcessor()
+                
+                if st.session_state.network:
+                    with st.spinner("Processing annotation and generating ModiFinder links..."):
+                        # Process the single annotation immediately
+                        updated_network, results = processor.process_pending_annotations(st.session_state.network)
+                        
+                        # Update the network in session state
+                        st.session_state.network = updated_network
+                        st.session_state.filtered_network = updated_network
+                        
+                        # Show results
+                        if results['processed'] > 0:
+                            st.info(f"🔗 Generated {results['modifinder_links_created']} ModiFinder link(s) for connected nodes")
+                        else:
+                            st.info("Annotation processed (no ModiFinder links generated - connected nodes may lack spectrum data)")
+                
+                # Save annotations to current project
+                graphml_filename = getattr(st.session_state, 'current_graphml_filename', None)
+                if not annotation_manager.save_current_project(graphml_filename):
+                    # Fallback to legacy saving
+                    annotation_manager.save_annotations_to_file()
                 
             else:
                 st.error("Failed to add annotation")
@@ -782,8 +1051,8 @@ class UIComponents:
     
     @staticmethod
     def render_node_detail_panel(node: 'ChemicalNode'):
-        """Render detailed information panel for a selected node."""
-        # Header with improved styling
+        """Render detailed information panel for a selected node with two-column layout."""
+        # Header with improved styling - spans full width above columns
         st.markdown(f"""
         <div class="content-section">
             <h2>{node.label}</h2>
@@ -794,220 +1063,182 @@ class UIComponents:
         </div>
         """, unsafe_allow_html=True)
         
-        # SMILES Annotation Section - NEW
-        UIComponents._render_smiles_annotation_section(node)
+        # Create two-column layout
+        col_info, col_viz = st.columns([1, 1])
         
-        # Spectrum and Molecular Visualizations - MOVED TO TOP
-        st.markdown("### Visualizations")
+        # LEFT COLUMN: Node Information
+        with col_info:
+            # SMILES Annotation Section
+            UIComponents._render_smiles_annotation_section(node)
         
-        # Import ModiFinder utilities
-        from ..utils.modifinder_utils import ModiFinderUtils
-        
-        # Create tabs for different visualizations
-        viz_tabs = []
-        
-        # Check if we have SMILES data for molecular structure
-        smiles = node.properties.get('library_SMILES')
-        if smiles and str(smiles).strip():
-            viz_tabs.append("Molecular Structure")
-        
-        # Check if we have spectrum data
-        spectrum_fields = ['spectrum_id', 'SpectrumID', 'usi', 'USI']
-        has_spectrum = any(node.properties.get(field) for field in spectrum_fields)
-        if has_spectrum:
-            viz_tabs.append("Spectrum")
-        
-        if viz_tabs:
-            # Create tabs for available visualizations
-            if len(viz_tabs) == 1:
-                # Single visualization - no tabs needed
-                if viz_tabs[0] == "Molecular Structure":
-                    st.markdown("#### Molecular Structure")
-                    ModiFinderUtils.render_loading_placeholder("Generating molecular structure...")
-                    
-                    if ModiFinderUtils.is_available():
-                        img_base64 = ModiFinderUtils.generate_molecule_image(str(smiles).strip())
-                        if img_base64:
-                            ModiFinderUtils.display_image_from_base64(
-                                img_base64, 
-                                f"Molecular Structure: {node.label}"
-                            )
-                        else:
-                            ModiFinderUtils.render_error_placeholder("Could not generate molecular structure")
-                    else:
-                        ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
-                        
-                elif viz_tabs[0] == "Spectrum":
-                    st.markdown("#### Spectrum Visualization")
-                    ModiFinderUtils.render_loading_placeholder("Generating spectrum visualization...")
-                    
-                    if ModiFinderUtils.is_available():
-                        img_base64 = ModiFinderUtils.generate_spectrum_image(node.properties)
-                        if img_base64:
-                            ModiFinderUtils.display_image_from_base64(
-                                img_base64, 
-                                f"Spectrum: {node.label}"
-                            )
-                        else:
-                            ModiFinderUtils.render_error_placeholder("Could not generate spectrum visualization")
-                    else:
-                        ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
-            else:
-                # Multiple visualizations - use tabs
-                tab_objects = st.tabs(viz_tabs)
+        # RIGHT COLUMN: Molecule Visualization
+        with col_viz:
+            # Import ModiFinder utilities
+            from ..utils.modifinder_utils import ModiFinderUtils
+            
+            # Check if we have SMILES data for molecular structure
+            smiles = node.properties.get('library_SMILES')
+            has_smiles = smiles and str(smiles).strip()
+            
+            # Check if we have spectrum data
+            spectrum_fields = ['spectrum_id', 'SpectrumID', 'usi', 'USI']
+            has_spectrum = any(node.properties.get(field) for field in spectrum_fields)
+            
+            # Display molecular structure (priority)
+            if has_smiles:
+                st.markdown("#### Molecular Structure")
+                ModiFinderUtils.render_loading_placeholder("Generating molecular structure...")
                 
-                for i, tab_name in enumerate(viz_tabs):
-                    with tab_objects[i]:
-                        if tab_name == "Molecular Structure":
-                            ModiFinderUtils.render_loading_placeholder("Generating molecular structure...")
-                            
-                            if ModiFinderUtils.is_available():
-                                img_base64 = ModiFinderUtils.generate_molecule_image(str(smiles).strip())
-                                if img_base64:
-                                    ModiFinderUtils.display_image_from_base64(
-                                        img_base64, 
-                                        f"Molecular Structure: {node.label}"
-                                    )
-                                else:
-                                    ModiFinderUtils.render_error_placeholder("Could not generate molecular structure")
-                            else:
-                                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
-                                
-                        elif tab_name == "Spectrum":
-                            ModiFinderUtils.render_loading_placeholder("Generating spectrum visualization...")
-                            
-                            if ModiFinderUtils.is_available():
-                                img_base64 = ModiFinderUtils.generate_spectrum_image(node.properties)
-                                if img_base64:
-                                    ModiFinderUtils.display_image_from_base64(
-                                        img_base64, 
-                                        f"Spectrum: {node.label}"
-                                    )
-                                else:
-                                    ModiFinderUtils.render_error_placeholder("Could not generate spectrum visualization")
-                            else:
-                                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
-        else:
-            # No visualization data available
-            st.info("No spectrum or molecular structure data available for visualization")
-        
-        # Chemical Properties - MOVED BELOW VISUALIZATIONS
-        st.markdown('<div class="content-section">', unsafe_allow_html=True)
-        st.markdown("### Chemical Properties")
-        
-        # Field mapping as requested by user
-        field_mappings = {
-            'library_SMILES': 'SMILES',
-            'library_compound_name': 'Compound Name',
-            'library_InChI': 'InChI',
-            'rt': 'Retention Time',
-            'mz': 'Precursor Mass',
-            'library_classfire_superclass': 'ClassyFire Superclass',
-            'library_classyfire_class': 'ClassyFire Class',
-            'library_classyfire_subclass': 'ClassyFire Subclass',
-            'library_npclassifier_superclass': 'npclassifier Super Class',
-            'library_npclassifier_class': 'npclassifier Class',
-            'library_npclassifier_pathway': 'npclassifier Pathway',
-            'SpectrumID': 'Spectrum ID',
-            'Compound_Name': 'Compound Name',
-            'Adduct': 'Adduct',
-            'molecular_formula': 'Molecular Formula'
-        }
-        
-        displayed_fields = set()
-        
-        # Group properties into categories
-        structural_props = []
-        analytical_props = []
-        classification_props = []
-        
-        for property_key, display_name in field_mappings.items():
-            if property_key in node.properties:
-                value = node.properties[property_key]
-                if value is not None and str(value).strip():
-                    prop_data = {
-                        'key': property_key,
-                        'name': display_name,
-                        'value': value
-                    }
-                    
-                    # Categorize properties
-                    if property_key in ['library_SMILES', 'library_InChI', 'molecular_formula']:
-                        structural_props.append(prop_data)
-                    elif property_key in ['rt', 'mz', 'SpectrumID', 'Adduct']:
-                        analytical_props.append(prop_data)
+                if ModiFinderUtils.is_available():
+                    img_base64 = ModiFinderUtils.generate_molecule_image(str(smiles).strip())
+                    if img_base64:
+                        ModiFinderUtils.display_image_from_base64(
+                            img_base64, 
+                            f"Molecular Structure: {node.label}"
+                        )
                     else:
-                        classification_props.append(prop_data)
-                    
-                    displayed_fields.add(property_key)
-        
-        # Display categorized properties
-        if structural_props:
-            st.markdown("#### Structural Information")
-            for prop in structural_props:
-                if prop['key'] in ['library_SMILES', 'library_InChI']:
-                    st.markdown(f"""
-                    <div class="property-item">
-                        <strong>{prop['name']}:</strong>
-                        <div class="chemical-data">{str(prop['value'])}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        ModiFinderUtils.render_error_placeholder("Could not generate molecular structure")
                 else:
+                    ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+            
+            # Display spectrum visualization if available
+            if has_spectrum:
+                st.markdown("#### Spectrum Visualization")
+                ModiFinderUtils.render_loading_placeholder("Generating spectrum visualization...")
+                
+                if ModiFinderUtils.is_available():
+                    img_base64 = ModiFinderUtils.generate_spectrum_image(node.properties)
+                    if img_base64:
+                        ModiFinderUtils.display_image_from_base64(
+                            img_base64, 
+                            f"Spectrum: {node.label}"
+                        )
+                    else:
+                        ModiFinderUtils.render_error_placeholder("Could not generate spectrum visualization")
+                else:
+                    ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+            
+            # Show message if no visualization data available
+            if not has_smiles and not has_spectrum:
+                st.info("No molecular structure or spectrum data available for visualization")
+        
+        # Back to LEFT COLUMN: Add Chemical Properties
+        with col_info:
+            st.markdown("### Chemical Properties")
+            
+            # Field mapping as requested by user
+            field_mappings = {
+                'library_SMILES': 'SMILES',
+                'library_compound_name': 'Compound Name',
+                'library_InChI': 'InChI',
+                'rt': 'Retention Time',
+                'mz': 'Precursor Mass',
+                'library_classfire_superclass': 'ClassyFire Superclass',
+                'library_classyfire_class': 'ClassyFire Class',
+                'library_classyfire_subclass': 'ClassyFire Subclass',
+                'library_npclassifier_superclass': 'npclassifier Super Class',
+                'library_npclassifier_class': 'npclassifier Class',
+                'library_npclassifier_pathway': 'npclassifier Pathway',
+                'SpectrumID': 'Spectrum ID',
+                'Compound_Name': 'Compound Name',
+                'Adduct': 'Adduct',
+                'molecular_formula': 'Molecular Formula'
+            }
+        
+            displayed_fields = set()
+            
+            # Group properties into categories
+            structural_props = []
+            analytical_props = []
+            classification_props = []
+            
+            for property_key, display_name in field_mappings.items():
+                if property_key in node.properties:
+                    value = node.properties[property_key]
+                    if value is not None and str(value).strip():
+                        prop_data = {
+                            'key': property_key,
+                            'name': display_name,
+                            'value': value
+                        }
+                        
+                        # Categorize properties
+                        if property_key in ['library_SMILES', 'library_InChI', 'molecular_formula']:
+                            structural_props.append(prop_data)
+                        elif property_key in ['rt', 'mz', 'SpectrumID', 'Adduct']:
+                            analytical_props.append(prop_data)
+                        else:
+                            classification_props.append(prop_data)
+                        
+                        displayed_fields.add(property_key)
+            
+            # Display categorized properties
+            if structural_props:
+                st.markdown("#### Structural Information")
+                for prop in structural_props:
+                    if prop['key'] in ['library_SMILES', 'library_InChI']:
+                        st.markdown(f"""
+                        <div class="property-item">
+                            <strong>{prop['name']}:</strong>
+                            <div class="chemical-data">{str(prop['value'])}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div class="property-item">
+                            <strong>{prop['name']}:</strong> {prop['value']}
+                        </div>
+                        """, unsafe_allow_html=True)
+            
+            if analytical_props:
+                st.markdown("#### Analytical Data")
+                for prop in analytical_props:
                     st.markdown(f"""
                     <div class="property-item">
                         <strong>{prop['name']}:</strong> {prop['value']}
                     </div>
                     """, unsafe_allow_html=True)
-        
-        if analytical_props:
-            st.markdown("#### Analytical Data")
-            for prop in analytical_props:
-                st.markdown(f"""
-                <div class="property-item">
-                    <strong>{prop['name']}:</strong> {prop['value']}
-                </div>
-                """, unsafe_allow_html=True)
-        
-        if classification_props:
-            st.markdown("#### Classification")
-            for prop in classification_props:
-                st.markdown(f"""
-                <div class="property-item">
-                    <strong>{prop['name']}:</strong> {prop['value']}
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # Display any additional properties not in the mapping
-        other_properties = {k: v for k, v in node.properties.items() 
-                          if k not in displayed_fields and v is not None and str(v).strip()}
-        
-        if other_properties:
-            st.markdown("#### Additional Properties")
-            for key, value in other_properties.items():
-                formatted_key = key.replace('_', ' ').title()
-                value_str = str(value)
+            
+            if classification_props:
+                st.markdown("#### Classification")
+                for prop in classification_props:
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>{prop['name']}:</strong> {prop['value']}
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Display any additional properties not in the mapping
+            other_properties = {k: v for k, v in node.properties.items() 
+                              if k not in displayed_fields and v is not None and str(v).strip()}
+            
+            if other_properties:
+                st.markdown("#### Additional Properties")
+                for key, value in other_properties.items():
+                    formatted_key = key.replace('_', ' ').title()
+                    value_str = str(value)
                 
-                # Check if this might be a chemical formula or SMILES string
-                if any(pattern in value_str.lower() for pattern in ['smiles', 'inchi']) or \
-                   any(char in value_str for char in ['=', '+', '-', '(', ')', '[', ']', '@']):
-                    # Likely chemical data - use improved styling
-                    st.markdown(f"""
-                    <div class="property-item">
-                        <strong>{formatted_key}:</strong>
-                        <div class="chemical-data">{value_str}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    # Regular display with improved styling
-                    st.markdown(f"""
-                    <div class="property-item">
-                        <strong>{formatted_key}:</strong> {value}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    # Check if this might be a chemical formula or SMILES string
+                    if any(pattern in value_str.lower() for pattern in ['smiles', 'inchi']) or \
+                       any(char in value_str for char in ['=', '+', '-', '(', ')', '[', ']', '@']):
+                        # Likely chemical data - use improved styling
+                        st.markdown(f"""
+                        <div class="property-item">
+                            <strong>{formatted_key}:</strong>
+                            <div class="chemical-data">{value_str}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        # Regular display with improved styling
+                        st.markdown(f"""
+                        <div class="property-item">
+                            <strong>{formatted_key}:</strong> {value}
+                        </div>
+                        """, unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)  # Close content-section
         
-        st.markdown('</div>', unsafe_allow_html=True)  # Close content-section
-        
-        # Action button with improved styling
+        # Action button with improved styling - outside columns
         st.markdown("---")
         if st.button("Close Details", key=f"close_details_{node.id}", use_container_width=True):
             if 'selected_node_id' in st.session_state:

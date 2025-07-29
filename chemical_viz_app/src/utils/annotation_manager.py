@@ -18,15 +18,17 @@ class AnnotationManager:
     Manages SMILES annotations with persistence and state tracking.
     
     Handles storing user annotations in session state and persisting them
-    to local files for cross-session availability.
+    to local files for cross-session availability. Now supports project-based
+    storage using GraphML filename + timestamp.
     """
     
-    ANNOTATIONS_FILE = "smiles_annotations.json"
+    ANNOTATIONS_FILE = "smiles_annotations.json"  # Legacy fallback
     
     def __init__(self):
         self.annotations_dir = Path("annotations")
         self.annotations_dir.mkdir(exist_ok=True)
         self.annotations_path = self.annotations_dir / self.ANNOTATIONS_FILE
+        self.current_project_file = None
     
     @staticmethod
     def initialize_session_state():
@@ -42,6 +44,9 @@ class AnnotationManager:
         
         if 'pending_annotations' not in st.session_state:
             st.session_state.pending_annotations = {}
+        
+        if 'current_project_name' not in st.session_state:
+            st.session_state.current_project_name = None
     
     def create_annotation(
         self,
@@ -203,6 +208,149 @@ class AnnotationManager:
         st.session_state.node_annotations.clear()
         st.session_state.last_annotation_update = None
     
+    def generate_project_filename(self, graphml_filename: str) -> str:
+        """
+        Generate a project filename based on GraphML filename and timestamp.
+        
+        Args:
+            graphml_filename: Original GraphML filename
+            
+        Returns:
+            Project filename in format: {graphml_base}_{timestamp}.json
+        """
+        # Remove extension and clean filename
+        base_name = Path(graphml_filename).stem
+        # Remove special characters for safe filename
+        safe_name = "".join(c for c in base_name if c.isalnum() or c in ('-', '_'))
+        
+        # Generate timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        return f"{safe_name}_{timestamp}.json"
+    
+    def set_current_project(self, graphml_filename: str):
+        """
+        Set the current project based on GraphML filename.
+        
+        Args:
+            graphml_filename: Name of the GraphML file being worked on
+        """
+        project_filename = self.generate_project_filename(graphml_filename)
+        self.current_project_file = self.annotations_dir / project_filename
+        st.session_state.current_project_name = project_filename
+    
+    def get_available_projects(self) -> List[Dict[str, Any]]:
+        """
+        Get list of available project files.
+        
+        Returns:
+            List of project info dictionaries with name, path, and metadata
+        """
+        projects = []
+        
+        # Find all JSON files in annotations directory
+        for json_file in self.annotations_dir.glob("*.json"):
+            if json_file.name == self.ANNOTATIONS_FILE:
+                continue  # Skip legacy file
+                
+            try:
+                # Try to load metadata
+                with open(json_file, 'r') as f:
+                    data = json.load(f)
+                
+                # Extract info
+                project_info = {
+                    'filename': json_file.name,
+                    'path': json_file,
+                    'saved_at': data.get('saved_at', 'Unknown'),
+                    'graphml_source': data.get('graphml_source', 'Unknown'),
+                    'annotation_count': len(data.get('annotations', {})),
+                    'last_update': data.get('last_update', 'Unknown')
+                }
+                projects.append(project_info)
+                
+            except Exception as e:
+                print(f"Error reading project file {json_file}: {e}")
+                continue
+        
+        # Sort by saved_at timestamp (newest first)
+        projects.sort(key=lambda x: x['saved_at'], reverse=True)
+        return projects
+    
+    def load_project(self, project_filename: str) -> bool:
+        """
+        Load a specific project file.
+        
+        Args:
+            project_filename: Name of the project file to load
+            
+        Returns:
+            True if load was successful
+        """
+        project_path = self.annotations_dir / project_filename
+        
+        try:
+            if not project_path.exists():
+                return False
+            
+            with open(project_path, 'r') as f:
+                annotations_data = json.load(f)
+            
+            # Clear existing annotations
+            st.session_state.node_annotations = {}
+            
+            # Load project data into session state
+            if 'annotations' in annotations_data:
+                st.session_state.node_annotations.update(annotations_data['annotations'])
+            
+            if 'last_update' in annotations_data:
+                st.session_state.last_annotation_update = annotations_data['last_update']
+            
+            # Set current project
+            self.current_project_file = project_path
+            st.session_state.current_project_name = project_filename
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error loading project {project_filename}: {e}")
+            return False
+    
+    def save_current_project(self, graphml_filename: str = None) -> bool:
+        """
+        Save current annotations to the current project file.
+        
+        Args:
+            graphml_filename: GraphML source filename (for new projects)
+            
+        Returns:
+            True if save was successful
+        """
+        # If no current project, create one
+        if self.current_project_file is None and graphml_filename:
+            self.set_current_project(graphml_filename)
+        
+        if self.current_project_file is None:
+            print("No current project file set")
+            return False
+        
+        try:
+            annotations_data = {
+                'annotations': st.session_state.node_annotations,
+                'last_update': st.session_state.last_annotation_update,
+                'saved_at': datetime.now().isoformat(),
+                'graphml_source': graphml_filename or 'Unknown'
+            }
+            
+            with open(self.current_project_file, 'w') as f:
+                json.dump(annotations_data, f, indent=2, default=str)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error saving current project: {e}")
+            return False
+
     def save_annotations_to_file(self) -> bool:
         """
         Save current annotations to file for persistence.
@@ -328,3 +476,108 @@ class AnnotationManager:
                 nodes_needing_smiles.append(node)
         
         return nodes_needing_smiles
+    
+    def export_annotated_graphml(self, network: 'ChemicalNetwork', output_path: str = None) -> str:
+        """
+        Export the network with annotations to a GraphML file.
+        
+        Creates a new GraphML file that includes all user annotations,
+        preserving the original structure while adding the annotated SMILES data.
+        
+        Args:
+            network: The chemical network with annotations applied
+            output_path: Path for the output file (optional, will generate if not provided)
+            
+        Returns:
+            Path to the created GraphML file
+        """
+        import networkx as nx
+        import tempfile
+        from datetime import datetime
+        from pathlib import Path
+        
+        # Generate output path if not provided
+        if not output_path:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Try to get GraphML filename from session state if available
+            graphml_filename = 'network'
+            if hasattr(st, 'session_state') and hasattr(st.session_state, 'current_graphml_filename'):
+                graphml_filename = st.session_state.current_graphml_filename
+            
+            if graphml_filename.endswith('.graphml'):
+                base_name = graphml_filename[:-8]  # Remove .graphml extension
+            else:
+                base_name = graphml_filename
+            
+            output_path = f"{base_name}_with_annotations_{timestamp}.graphml"
+        
+        try:
+            # Create a new NetworkX graph
+            G = nx.Graph()
+            
+            # Add nodes with all their properties
+            for node in network.nodes:
+                # Create a dictionary of all node properties
+                node_attrs = dict(node.properties)
+                
+                # Add standard node attributes
+                node_attrs['id'] = node.id
+                node_attrs['label'] = node.label
+                node_attrs['node_type'] = node.node_type.value
+                
+                # Add visual attributes if they exist
+                if node.color:
+                    node_attrs['color'] = node.color
+                if node.size is not None:
+                    node_attrs['size'] = node.size
+                if node.x is not None:
+                    node_attrs['x'] = node.x
+                if node.y is not None:
+                    node_attrs['y'] = node.y
+                
+                G.add_node(node.id, **node_attrs)
+            
+            # Add edges with all their properties
+            for edge in network.edges:
+                # Create a dictionary of all edge properties
+                edge_attrs = dict(edge.properties)
+                
+                # Add standard edge attributes
+                edge_attrs['edge_type'] = edge.edge_type.value
+                edge_attrs['weight'] = edge.weight
+                
+                # Add visual attributes if they exist
+                if edge.color:
+                    edge_attrs['color'] = edge.color
+                if edge.width is not None:
+                    edge_attrs['width'] = edge.width
+                
+                G.add_edge(edge.source, edge.target, **edge_attrs)
+            
+            # Add metadata as graph attributes
+            for key, value in network.metadata.items():
+                G.graph[key] = value
+            
+            # Add export metadata
+            G.graph['export_timestamp'] = datetime.now().isoformat()
+            G.graph['export_tool'] = 'Chemical Data Visualization App'
+            G.graph['contains_user_annotations'] = True
+            
+            # Count annotations for metadata
+            annotated_nodes = [n for n in network.nodes if n.properties.get('annotation_status') == 'user_annotated']
+            G.graph['user_annotations_count'] = len(annotated_nodes)
+            G.graph['total_nodes'] = len(network.nodes)
+            G.graph['total_edges'] = len(network.edges)
+            
+            # Write to GraphML file
+            nx.write_graphml(G, output_path, encoding='utf-8', prettyprint=True)
+            
+            print(f"DEBUG: Exported annotated GraphML to: {output_path}")
+            print(f"DEBUG: Includes {len(annotated_nodes)} user annotations")
+            
+            return output_path
+            
+        except Exception as e:
+            print(f"ERROR: Failed to export annotated GraphML: {str(e)}")
+            raise e
