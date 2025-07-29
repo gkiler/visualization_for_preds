@@ -299,224 +299,235 @@ def main():
                 metadata=st.session_state.network.metadata
             )
         
-        # Create layout columns - dynamic based on whether edge is selected
-        if st.session_state.selected_edge_id:
-            # Three columns when edge is selected (2:1:2 ratio - ModiFinder column is twice as wide)
-            col1, col2, col3 = st.columns([2, 1, 2])
-            # Make columns resizable
-            ResizableColumns.render_resizable_columns(3, [2, 1, 2])
-        else:
-            # Two columns using the dynamic ratio from sidebar
-            col1, col2 = st.columns(st.session_state.column_ratio)
-            # Make columns resizable
-            ResizableColumns.render_resizable_columns(2, st.session_state.column_ratio)
+        # Network visualization takes full width at the top
+        # Enhanced network visualization header
+        st.markdown("""
+        <div class="content-section">
+            <h2>Network Visualization</h2>
+            <div style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 4px; padding: 0.75rem; margin: 0.5rem 0;">
+                <strong>Interaction Guide:</strong>
+                <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                    <li>Click nodes to view detailed molecular information</li>
+                    <!-- <li>Click edges to see spectrum alignments and molecular formulas</li> -->
+                    <li>Drag nodes to rearrange the network layout</li>
+                </ul>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        with col1:
-            st.subheader("Network Visualization")
-            st.info("💡 Click on any node in the network to view detailed information in the right panel")
-            
-            visualizer = NetworkVisualizer()
-            
-            # Use default node coloring (library_SMILES-based green/grey implemented in NetworkVisualizer)
-            node_colors = None
-            node_sizes = None
-            edge_colors = None
-            
-            if sizing_options.get('size_by') == 'Property':
-                prop = sizing_options.get('size_property')
-                if prop:
-                    node_sizes = visualizer.get_node_sizes_by_property(
-                        st.session_state.filtered_network,
-                        prop,
-                        sizing_options.get('min_size', 10),
-                        sizing_options.get('max_size', 50)
-                    )
-            
-            # Use default edge coloring (type-based from config)
-            
-            html_file = visualizer.visualize_network(
-                st.session_state.filtered_network,
-                height=st.session_state.visualization_settings.get('height', '750px'),
-                physics=st.session_state.visualization_settings.get('physics', True),
-                node_colors=node_colors,
-                node_sizes=node_sizes,
-                edge_colors=edge_colors,
-                node_label_column=st.session_state.labeling_settings.get('node_label_column', 'label'),
-                show_edge_labels=st.session_state.labeling_settings.get('edge_labels_enabled', False),
-                edge_label_column=st.session_state.labeling_settings.get('edge_label_column', 'type')
-            )
-            
-            visualizer.display_in_streamlit(html_file)
-            
-            # Render hidden buttons for node and edge clicking (below visualization)
-            with st.expander("🔧 Selection Interface", expanded=False):
-                st.info("These buttons can be clicked programmatically when you click nodes or edges in the network above")
-                
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    st.markdown("**Node Buttons**")
-                    render_node_click_buttons(st.session_state.filtered_network)
-                
-                with col_btn2:
-                    st.markdown("**Edge Buttons**")
-                    render_edge_click_buttons(st.session_state.filtered_network)
-            
-            # Add postMessage fallback listener
-            postmessage_listener = """
-            <script>
-                window.addEventListener('message', function(event) {
-                    if (event.data && event.data.type === 'node_click') {
-                        const nodeId = event.data.nodeId;
-                        console.log('Received node click message:', nodeId);
-                        
-                        // Multiple strategies to find the button - consistent with edge handling
-                        const buttons = document.querySelectorAll('button');
-                        let targetButton = null;
-                        const buttonKey = 'node_click_' + nodeId;
-                        
-                        // Strategy 1: Find by button key in data-testid
-                        for (let button of buttons) {
-                            const testId = button.getAttribute('data-testid');
-                            if (testId && testId.includes(buttonKey)) {
-                                targetButton = button;
-                                break;
-                            }
-                        }
-                        
-                        // Strategy 2: Find by button text content if first strategy fails
-                        if (!targetButton) {
-                            for (let button of buttons) {
-                                if (button.textContent && button.textContent.includes(`Select ${nodeId}`)) {
-                                    targetButton = button;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // Strategy 3: Find by data attributes if available
-                        if (!targetButton) {
-                            for (let button of buttons) {
-                                if (button.getAttribute('data-node-id') === nodeId) {
-                                    targetButton = button;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (targetButton) {
-                            console.log('Found and clicking button for node:', nodeId);
-                            targetButton.click();
-                        } else {
-                            console.log('Could not find button for node via postMessage:', nodeId);
-                        }
-                    }
-                    else if (event.data && event.data.type === 'edge_click') {
-                        const edgeId = event.data.edgeId;
-                        console.log('Received edge click message:', edgeId);
-                        
-                        // Multiple strategies to find the button - match the PyVis handler logic
-                        const buttons = document.querySelectorAll('button');
-                        let targetButton = null;
-                        const buttonKey = 'edge_click_' + edgeId;
-                        
-                        // Strategy 1: Find by button key in data-testid
-                        for (let button of buttons) {
-                            const testId = button.getAttribute('data-testid');
-                            if (testId && testId.includes(buttonKey)) {
-                                targetButton = button;
-                                break;
-                            }
-                        }
-                        
-                        // Strategy 2: Find by button text content if first strategy fails
-                        if (!targetButton) {
-                            const edgeParts = edgeId.split('-');
-                            if (edgeParts.length >= 3) {
-                                const source = edgeParts[0];
-                                const target = edgeParts[1];
-                                const displayId = `${source}-${target}`;
-                                
-                                for (let button of buttons) {
-                                    if (button.textContent && button.textContent.includes(`Select ${displayId}`)) {
-                                        targetButton = button;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Strategy 3: Find by data attributes if available
-                        if (!targetButton) {
-                            for (let button of buttons) {
-                                if (button.getAttribute('data-edge-id') === edgeId) {
-                                    targetButton = button;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (targetButton) {
-                            console.log('Found and clicking button for edge:', edgeId);
-                            targetButton.click();
-                        } else {
-                            console.log('Could not find button for edge via postMessage:', edgeId);
-                        }
-                    }
-                });
-            </script>
-            """
-            components.html(postmessage_listener, height=0)
+        visualizer = NetworkVisualizer()
         
-        with col2:
-            # Display details for selected node or edge
-            if 'selected_node_id' in st.session_state and st.session_state.selected_node_id:
-                selected_node = st.session_state.filtered_network.get_node_by_id(st.session_state.selected_node_id)
-                if selected_node:
-                    UIComponents.render_node_detail_panel(selected_node)
-                else:
-                    st.info("Selected node not found in current filtered network")
-            elif 'selected_edge_id' in st.session_state and st.session_state.selected_edge_id:
-                selected_edge = st.session_state.filtered_network.get_edge_by_id(st.session_state.selected_edge_id)
-                if selected_edge:
-                    UIComponents.render_edge_detail_panel(selected_edge, st.session_state.filtered_network)
-                else:
-                    st.info("Selected edge not found in current filtered network")
-            else:
-                st.info("Select a node or edge to view details")
+        # Use default node coloring (library_SMILES-based green/grey implemented in NetworkVisualizer)
+        node_colors = None
+        node_sizes = None
+        edge_colors = None
         
-        # Third column for ModiFinder visualization (only when edge is selected)
-        if st.session_state.selected_edge_id:
-            with col3:
-                st.subheader("ModiFinder Visualization")
-                
-                # Get the selected edge
-                selected_edge = st.session_state.filtered_network.get_edge_by_id(st.session_state.selected_edge_id)
-                
-                if selected_edge and selected_edge.properties.get('modifinder_link'):
-                    if st.button("Visualize ModiFinder", type="primary", use_container_width=True):
-                        st.session_state.show_modifinder_viz = True
+        if sizing_options.get('size_by') == 'Property':
+            prop = sizing_options.get('size_property')
+            if prop:
+                node_sizes = visualizer.get_node_sizes_by_property(
+                    st.session_state.filtered_network,
+                    prop,
+                    sizing_options.get('min_size', 10),
+                    sizing_options.get('max_size', 50)
+                )
+        
+        # Use default edge coloring (type-based from config)
+        
+        html_file = visualizer.visualize_network(
+            st.session_state.filtered_network,
+            height=st.session_state.visualization_settings.get('height', '750px'),
+            physics=st.session_state.visualization_settings.get('physics', True),
+            node_colors=node_colors,
+            node_sizes=node_sizes,
+            edge_colors=edge_colors,
+            node_label_column=st.session_state.labeling_settings.get('node_label_column', 'label'),
+            show_edge_labels=st.session_state.labeling_settings.get('edge_labels_enabled', False),
+            edge_label_column=st.session_state.labeling_settings.get('edge_label_column', 'type')
+        )
+        
+        visualizer.display_in_streamlit(html_file)
+        
+        # Render hidden buttons for node and edge clicking (below visualization)
+        with st.expander("Selection Interface", expanded=False):
+            st.info("These buttons can be clicked programmatically when you click nodes or edges in the network above")
+            
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                st.markdown("**Node Buttons**")
+                render_node_click_buttons(st.session_state.filtered_network)
+            
+            with col_btn2:
+                st.markdown("**Edge Buttons**")
+                render_edge_click_buttons(st.session_state.filtered_network)
+        
+        # Add postMessage fallback listener
+        postmessage_listener = """
+        <script>
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'node_click') {
+                    const nodeId = event.data.nodeId;
+                    console.log('Received node click message:', nodeId);
                     
-                    # Display the iframe if button was clicked
-                    if st.session_state.show_modifinder_viz:
-                        UIComponents.render_modifinder_visualization(selected_edge.properties['modifinder_link'])
-                else:
-                    st.info("No ModiFinder link available for this edge")
+                    // Multiple strategies to find the button - consistent with edge handling
+                    const buttons = document.querySelectorAll('button');
+                    let targetButton = null;
+                    const buttonKey = 'node_click_' + nodeId;
+                    
+                    // Strategy 1: Find by button key in data-testid
+                    for (let button of buttons) {
+                        const testId = button.getAttribute('data-testid');
+                        if (testId && testId.includes(buttonKey)) {
+                            targetButton = button;
+                            break;
+                        }
+                    }
+                    
+                    // Strategy 2: Find by button text content if first strategy fails
+                    if (!targetButton) {
+                        for (let button of buttons) {
+                            if (button.textContent && button.textContent.includes(`Select ${nodeId}`)) {
+                                targetButton = button;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Strategy 3: Find by data attributes if available
+                    if (!targetButton) {
+                        for (let button of buttons) {
+                            if (button.getAttribute('data-node-id') === nodeId) {
+                                targetButton = button;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (targetButton) {
+                        console.log('Found and clicking button for node:', nodeId);
+                        targetButton.click();
+                    } else {
+                        console.log('Could not find button for node via postMessage:', nodeId);
+                    }
+                }
+                else if (event.data && event.data.type === 'edge_click') {
+                    const edgeId = event.data.edgeId;
+                    console.log('Received edge click message:', edgeId);
+                    
+                    // Multiple strategies to find the button - match the PyVis handler logic
+                    const buttons = document.querySelectorAll('button');
+                    let targetButton = null;
+                    const buttonKey = 'edge_click_' + edgeId;
+                    
+                    // Strategy 1: Find by button key in data-testid
+                    for (let button of buttons) {
+                        const testId = button.getAttribute('data-testid');
+                        if (testId && testId.includes(buttonKey)) {
+                            targetButton = button;
+                            break;
+                        }
+                    }
+                    
+                    // Strategy 2: Find by button text content if first strategy fails
+                    if (!targetButton) {
+                        const edgeParts = edgeId.split('-');
+                        if (edgeParts.length >= 3) {
+                            const source = edgeParts[0];
+                            const target = edgeParts[1];
+                            const displayId = `${source}-${target}`;
+                            
+                            for (let button of buttons) {
+                                if (button.textContent && button.textContent.includes(`Select ${displayId}`)) {
+                                    targetButton = button;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Strategy 3: Find by data attributes if available
+                    if (!targetButton) {
+                        for (let button of buttons) {
+                            if (button.getAttribute('data-edge-id') === edgeId) {
+                                targetButton = button;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (targetButton) {
+                        console.log('Found and clicking button for edge:', edgeId);
+                        targetButton.click();
+                    } else {
+                        console.log('Could not find button for edge via postMessage:', edgeId);
+                    }
+                }
+            });
+        </script>
+        """
+        components.html(postmessage_listener, height=0)
+        
+        # Details section below the network visualization
+        st.markdown("---")
+        
+        # Display details for selected node or edge
+        if 'selected_node_id' in st.session_state and st.session_state.selected_node_id:
+            selected_node = st.session_state.filtered_network.get_node_by_id(st.session_state.selected_node_id)
+            if selected_node:
+                UIComponents.render_node_detail_panel(selected_node)
+            else:
+                st.info("Selected node not found in current filtered network")
+                
+        elif 'selected_edge_id' in st.session_state and st.session_state.selected_edge_id:
+            selected_edge = st.session_state.filtered_network.get_edge_by_id(st.session_state.selected_edge_id)
+            if selected_edge:
+                # Create two columns for edge details and ModiFinder visualization
+                col_edge, col_modifinder = st.columns([1, 1])
+                
+                with col_edge:
+                    UIComponents.render_edge_detail_panel(selected_edge, st.session_state.filtered_network)
+                
+                with col_modifinder:
+                    st.markdown("""
+                    <div class="content-section">
+                        <h2>ModiFinder Visualization</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if selected_edge.properties.get('modifinder_link'):
+                        if st.button("Visualize ModiFinder", type="primary", use_container_width=True):
+                            st.session_state.show_modifinder_viz = True
+                        
+                        # Display the iframe if button was clicked
+                        if st.session_state.show_modifinder_viz:
+                            UIComponents.render_modifinder_visualization(selected_edge.properties['modifinder_link'])
+                    else:
+                        st.info("No ModiFinder link available for this edge")
+            else:
+                st.info("Selected edge not found in current filtered network")
+        else:
+            st.info("Select a node or edge in the network above to view details")
         
         # SMILES Annotation Processing Panel
         st.markdown("---")
         annotation_processor = AnnotationProcessor()
         annotation_processor.render_pending_updates_panel()
         
-        # Network Statistics moved to bottom of page
-        st.subheader("Network Statistics")
+        # Network Statistics with improved styling
+        st.markdown("""
+        <div class="content-section">
+            <h2>Network Statistics</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
         col_stats1, col_stats2 = st.columns(2)
         
         with col_stats1:
-            st.write("**Original Network:**")
+            st.markdown("### Original Network")
             UIComponents.render_network_stats(st.session_state.network)
             
         with col_stats2:
-            st.write("**Filtered Network:**")
+            st.markdown("### Filtered Network")
             UIComponents.render_network_stats(st.session_state.filtered_network)
         
         UIComponents.render_data_tables(st.session_state.filtered_network)

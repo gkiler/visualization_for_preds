@@ -52,8 +52,8 @@ class ModiFinderLinkGenerator:
         if not adduct or not isinstance(adduct, str):
             return ""
         
-        # Remove whitespace and the word 'adduct'
-        adduct_clean = re.sub(r'\s+|adduct', '', adduct.lower())
+        # Remove whitespace and the words 'adduct' and 'Fake'
+        adduct_clean = re.sub(r'\s+|adduct|Fake', '', adduct.lower())
         
         # Insert '1' before the last '+'
         adduct_norm = re.sub(r'\+(?!.*\+)', '1+', adduct_clean)

@@ -304,7 +304,7 @@ class ModiFinderUtils:
                 'dpi': kwargs.get('dpi', 300),
                 'draw_mapping_lines': True,
                 'ppm': kwargs.get('ppm', 40),
-                'x_lim': kwargs.get('x_lim', None),
+                'x_lim': (kwargs.get('x_lim', None)),
                 'flipped': True
             }
             

@@ -71,6 +71,75 @@ class UIComponents:
         .main .block-container {
             background-color: white !important;
             padding-top: 2rem;
+            max-width: 100%;
+        }
+        
+        /* Improved typography hierarchy */
+        .main h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #1e3a5f !important;
+            margin-bottom: 0.5rem;
+        }
+        .main h2 {
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: #2c5aa0 !important;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+        .main h3 {
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: #495057 !important;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .main h4 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #6c757d !important;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Enhanced section styling */
+        .content-section {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .detail-panel {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 0.5rem 0;
+        }
+        
+        .property-item {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-left: 4px solid #007bff;
+        }
+        
+        .chemical-data {
+            background: #f1f3f4;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
         }
         
         /* Override Streamlit's default dark backgrounds */
@@ -311,54 +380,36 @@ class UIComponents:
         </style>
         """, unsafe_allow_html=True)
         
-        st.title("🧪 Chemical Data Network Visualization")
+        st.title("Chemical Data Network Visualization")
         st.markdown("---")
     
     @staticmethod
     def render_data_upload() -> Optional[ChemicalNetwork]:
-        with st.expander("📁 Data Upload", expanded=True):
+        st.markdown("""
+        <div class="content-section">
+            <h2>Data Upload</h2>
+            <p>Upload your GraphML network file to begin visualization</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.expander("Load Network Data", expanded=True):
             upload_type = st.radio(
-                "Select data source:",
-                ["Use Sample Data", "Upload CSV Files", "Upload JSON File", "Upload GraphML File"]
+                "Choose your data source:",
+                ["Upload GraphML File", "Use Sample Data"],
+                help="GraphML files preserve all node and edge attributes from network analysis tools. Sample data provides a quick way to explore the interface."
             )
             
-            if upload_type == "Use Sample Data":
-                if st.button("Load Sample Network"):
-                    return "sample"
-            
-            elif upload_type == "Upload CSV Files":
-                col1, col2 = st.columns(2)
+            if upload_type == "Upload GraphML File":
+                st.markdown("""
+                <div class="detail-panel">
+                    <p><strong>GraphML Format:</strong> Preserves all node and edge attributes</p>
+                    <p>Compatible with Cytoscape, Gephi, yEd, and other network analysis tools</p>
+                    <p><em>Drag and drop your .graphml file below or click to browse</em></p>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                with col1:
-                    nodes_file = st.file_uploader(
-                        "Upload nodes CSV",
-                        type=['csv'],
-                        key="nodes_csv"
-                    )
-                
-                with col2:
-                    edges_file = st.file_uploader(
-                        "Upload edges CSV",
-                        type=['csv'],
-                        key="edges_csv"
-                    )
-                
-                if nodes_file and edges_file:
-                    return ("csv", nodes_file, edges_file)
-            
-            elif upload_type == "Upload JSON File":
-                json_file = st.file_uploader(
-                    "Upload network JSON",
-                    type=['json'],
-                    key="network_json"
-                )
-                
-                if json_file:
-                    return ("json", json_file)
-            
-            elif upload_type == "Upload GraphML File":
                 graphml_file = st.file_uploader(
-                    "Upload GraphML file",
+                    "Select GraphML file",
                     type=['graphml', 'xml'],
                     key="network_graphml",
                     help="GraphML files preserve all node and edge attributes from tools like Cytoscape, Gephi, or yEd"
@@ -366,6 +417,16 @@ class UIComponents:
                 
                 if graphml_file:
                     return ("graphml", graphml_file)
+            
+            elif upload_type == "Use Sample Data":
+                st.markdown("""
+                <div class="detail-panel">
+                    <p><strong>Sample Dataset:</strong> Chemical molecular network with 275 nodes and 565 edges</p>
+                    <p>Perfect for exploring the interface features and testing functionality</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("Load Sample Network", use_container_width=True):
+                    return "sample"
         
         return None
     
@@ -389,7 +450,13 @@ class UIComponents:
     
     @staticmethod
     def render_data_tables(network: ChemicalNetwork):
-        with st.expander("📊 View Data Tables"):
+        st.markdown("""
+        <div class="content-section">
+            <h2>Data Tables</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.expander("View Raw Data Tables", expanded=False):
             tab1, tab2 = st.tabs(["Nodes", "Edges"])
             
             with tab1:
@@ -469,36 +536,62 @@ class UIComponents:
     
     @staticmethod
     def render_export_options():
-        with st.expander("💾 Export Options"):
+        st.markdown("""
+        <div class="content-section">
+            <h2>Export Options</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.expander("Export Data and Visualizations", expanded=False):
+            st.markdown("### Export Formats")
+            
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                if st.button("Export as HTML", key="export_html"):
+                st.markdown("""
+                <div class="detail-panel">
+                    <h4>Interactive Visualization</h4>
+                    <p>Export the current network as an interactive HTML file</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("Export as HTML", key="export_html", use_container_width=True):
                     st.info("HTML export functionality will be implemented")
             
             with col2:
-                if st.button("Export as PNG", key="export_png"):
+                st.markdown("""
+                <div class="detail-panel">
+                    <h4>Static Image</h4>
+                    <p>Save the network visualization as a high-quality PNG image</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("Export as PNG", key="export_png", use_container_width=True):
                     st.info("PNG export functionality will be implemented")
             
             with col3:
-                if st.button("Export Network Data", key="export_data"):
+                st.markdown("""
+                <div class="detail-panel">
+                    <h4>Raw Data</h4>
+                    <p>Download the filtered network data in CSV or JSON format</p>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button("Export Network Data", key="export_data", use_container_width=True):
                     st.info("Data export functionality will be implemented")
     
     @staticmethod
     def render_error_message(error: str):
-        st.error(f"❌ Error: {error}")
+        st.error(f"Error: {error}")
     
     @staticmethod
     def render_success_message(message: str):
-        st.success(f"✅ {message}")
+        st.success(f"{message}")
     
     @staticmethod
     def render_info_message(message: str):
-        st.info(f"ℹ️ {message}")
+        st.info(f"{message}")
     
     @staticmethod
     def render_warning_message(message: str):
-        st.warning(f"⚠️ {message}")
+        st.warning(f"{message}")
     
     @staticmethod
     def render_progress_bar(progress: float, text: str = "Processing..."):
@@ -530,12 +623,12 @@ class UIComponents:
             # Debug info
             st.caption(f"DEBUG: annotation_status = {node.properties.get('annotation_status')}")
         elif has_smiles:
-            st.info(f"ℹ️ SMILES data available: `{str(current_smiles)[:50]}...`")
+            st.info(f"SMILES data available: `{str(current_smiles)[:50]}...`")
         else:
-            st.warning("⚠️ No SMILES data - annotation needed")
+            st.warning("No SMILES data - annotation needed")
         
         # Debug: Show all annotation-related properties
-        with st.expander("🔍 Debug: Node Properties", expanded=False):
+        with st.expander("Debug: Node Properties", expanded=False):
             annotation_props = {k: v for k, v in node.properties.items() if 'annotation' in k.lower() or k == 'library_SMILES'}
             if annotation_props:
                 st.json(annotation_props)
@@ -543,7 +636,7 @@ class UIComponents:
                 st.write("No annotation properties found")
         
         # SMILES input form
-        with st.expander("🧪 Add/Edit SMILES", expanded=not has_smiles):
+        with st.expander("Add/Edit SMILES", expanded=not has_smiles):
             # Input field
             placeholder_text = str(current_smiles) if has_smiles else "Enter SMILES string (e.g., CC(=O)Oc1ccccc1C(=O)O)"
             
@@ -590,7 +683,7 @@ class UIComponents:
                         st.info("ModiFinder not available for preview")
                         st.code(new_smiles, language=None)
                 else:
-                    st.error("⚠️ Invalid SMILES format")
+                    st.error("Invalid SMILES format")
             
             # Action buttons
             col1, col2, col3 = st.columns(3)
@@ -675,7 +768,7 @@ class UIComponents:
                     'status': 'pending'
                 }
                 
-                st.success(f"✅ SMILES annotation added for {node.label}")
+                st.success(f"SMILES annotation added for {node.label}")
                 st.info("Click 'Apply Updates' to process the annotation and update connected nodes")
                 
                 # Save annotations
@@ -690,11 +783,16 @@ class UIComponents:
     @staticmethod
     def render_node_detail_panel(node: 'ChemicalNode'):
         """Render detailed information panel for a selected node."""
-        st.subheader(f"Node Details: {node.label}")
-        
-        # Display basic node info
-        st.markdown(f"**Node ID:** {node.id}")
-        st.markdown(f"**Node Type:** {node.node_type.value}")
+        # Header with improved styling
+        st.markdown(f"""
+        <div class="content-section">
+            <h2>{node.label}</h2>
+            <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+                <div><strong>ID:</strong> <code>{node.id}</code></div>
+                <div><strong>Type:</strong> <span style="background: #e3f2fd; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.9rem;">{node.node_type.value}</span></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
         # SMILES Annotation Section - NEW
         UIComponents._render_smiles_annotation_section(node)
@@ -791,9 +889,10 @@ class UIComponents:
                                 ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
         else:
             # No visualization data available
-            st.info("🔬 No spectrum or molecular structure data available for visualization")
+            st.info("No spectrum or molecular structure data available for visualization")
         
         # Chemical Properties - MOVED BELOW VISUALIZATIONS
+        st.markdown('<div class="content-section">', unsafe_allow_html=True)
         st.markdown("### Chemical Properties")
         
         # Field mapping as requested by user
@@ -817,41 +916,100 @@ class UIComponents:
         
         displayed_fields = set()
         
+        # Group properties into categories
+        structural_props = []
+        analytical_props = []
+        classification_props = []
+        
         for property_key, display_name in field_mappings.items():
             if property_key in node.properties:
                 value = node.properties[property_key]
                 if value is not None and str(value).strip():
-                    # Special handling for SMILES and InChI to prevent auto-linking
-                    if property_key in ['library_SMILES', 'library_InChI']:
-                        # Use st.code for better formatting of chemical strings
-                        st.markdown(f"**{display_name}:**")
-                        st.code(str(value), language=None)
+                    prop_data = {
+                        'key': property_key,
+                        'name': display_name,
+                        'value': value
+                    }
+                    
+                    # Categorize properties
+                    if property_key in ['library_SMILES', 'library_InChI', 'molecular_formula']:
+                        structural_props.append(prop_data)
+                    elif property_key in ['rt', 'mz', 'SpectrumID', 'Adduct']:
+                        analytical_props.append(prop_data)
                     else:
-                        # Regular markdown for other fields
-                        st.markdown(f"**{display_name}:** {value}")
+                        classification_props.append(prop_data)
+                    
                     displayed_fields.add(property_key)
+        
+        # Display categorized properties
+        if structural_props:
+            st.markdown("#### Structural Information")
+            for prop in structural_props:
+                if prop['key'] in ['library_SMILES', 'library_InChI']:
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>{prop['name']}:</strong>
+                        <div class="chemical-data">{str(prop['value'])}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>{prop['name']}:</strong> {prop['value']}
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        if analytical_props:
+            st.markdown("#### Analytical Data")
+            for prop in analytical_props:
+                st.markdown(f"""
+                <div class="property-item">
+                    <strong>{prop['name']}:</strong> {prop['value']}
+                </div>
+                """, unsafe_allow_html=True)
+        
+        if classification_props:
+            st.markdown("#### Classification")
+            for prop in classification_props:
+                st.markdown(f"""
+                <div class="property-item">
+                    <strong>{prop['name']}:</strong> {prop['value']}
+                </div>
+                """, unsafe_allow_html=True)
         
         # Display any additional properties not in the mapping
         other_properties = {k: v for k, v in node.properties.items() 
                           if k not in displayed_fields and v is not None and str(v).strip()}
         
         if other_properties:
-            st.markdown("### Additional Properties")
+            st.markdown("#### Additional Properties")
             for key, value in other_properties.items():
                 formatted_key = key.replace('_', ' ').title()
-                # Check if this might be a chemical formula or SMILES string
                 value_str = str(value)
+                
+                # Check if this might be a chemical formula or SMILES string
                 if any(pattern in value_str.lower() for pattern in ['smiles', 'inchi']) or \
                    any(char in value_str for char in ['=', '+', '-', '(', ')', '[', ']', '@']):
-                    # Likely chemical data - use code block for better formatting
-                    st.markdown(f"**{formatted_key}:**")
-                    st.code(value_str, language=None)
+                    # Likely chemical data - use improved styling
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>{formatted_key}:</strong>
+                        <div class="chemical-data">{value_str}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    # Regular display
-                    st.markdown(f"**{formatted_key}:** {value}")
+                    # Regular display with improved styling
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>{formatted_key}:</strong> {value}
+                    </div>
+                    """, unsafe_allow_html=True)
         
+        st.markdown('</div>', unsafe_allow_html=True)  # Close content-section
+        
+        # Action button with improved styling
         st.markdown("---")
-        if st.button("Close Details", key=f"close_details_{node.id}"):
+        if st.button("Close Details", key=f"close_details_{node.id}", use_container_width=True):
             if 'selected_node_id' in st.session_state:
                 del st.session_state.selected_node_id
             st.rerun()
@@ -859,169 +1017,246 @@ class UIComponents:
     @staticmethod
     def render_edge_detail_panel(edge: 'ChemicalEdge', network: 'ChemicalNetwork'):
         """Render detailed information panel for a selected edge."""
-        st.subheader(f"Edge Details: {edge.source} → {edge.target}")
+        # Header with improved styling
+        st.markdown(f"""
+        <div class="content-section">
+            <h2>Edge: {edge.source} → {edge.target}</h2>
+            <div style="display: flex; gap: 2rem; margin-bottom: 1rem;">
+                <div><strong>Type:</strong> <span style="background: #fff3cd; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.9rem;">{edge.edge_type.value}</span></div>
+                <div><strong>Weight:</strong> <code>{edge.weight}</code></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Display basic edge info
-        st.markdown(f"**Edge Type:** {edge.edge_type.value}")
-        st.markdown(f"**Weight:** {edge.weight}")
+        # # Spectrum Alignment Visualization - MOVED TO TOP (COMMENTED OUT)
+        # st.markdown("### Spectrum Alignment")
+        # 
+        # # Import ModiFinder utilities
+        # from ..utils.modifinder_utils import ModiFinderUtils
         
-        # Spectrum Alignment Visualization - MOVED TO TOP
-        st.markdown("### Spectrum Alignment")
-        
-        # Import ModiFinder utilities
-        from ..utils.modifinder_utils import ModiFinderUtils
-        
-        # Get source and target nodes first to extract USI values
+        # Get source and target nodes (needed for later sections)
         source_node = network.get_node_by_id(edge.source)
         target_node = network.get_node_by_id(edge.target)
-        
-        # Extract USI from source node (usi1) and target node (usi2)
-        usi1 = None  # Source node USI
-        usi2 = None  # Target node USI
-        
-        if source_node:
-            # Look for USI in source node properties
-            usi1 = source_node.properties.get('usi') or source_node.properties.get('USI')
-        
-        if target_node:
-            # Look for USI in target node properties  
-            usi2 = target_node.properties.get('usi') or target_node.properties.get('USI')
-        
-        if usi1 and usi2:
-            st.info(f"🔬 Generating spectrum alignment between {edge.source} and {edge.target}")
-            
-            if ModiFinderUtils.is_available():
-                with st.spinner("Generating spectrum alignment visualization..."):
-                    img_base64 = ModiFinderUtils.generate_alignment_image(usi1, usi2)
-                    
-                if img_base64:
-                    ModiFinderUtils.display_image_from_base64(
-                        img_base64, 
-                        f"Spectrum Alignment: {edge.source} ↔ {edge.target}"
-                    )
-                    
-                    # Display USI information
-                    with st.expander("📊 USI Details"):
-                        st.markdown("**USI 1 (Source):**")
-                        st.code(usi1, language=None)
-                        st.markdown("**USI 2 (Target):**")
-                        st.code(usi2, language=None)
-                else:
-                    ModiFinderUtils.render_error_placeholder("Could not generate spectrum alignment")
-            else:
-                ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
-        else:
-            st.info("🔬 No USI information found in node data for spectrum alignment")
-            
-            # Show what fields were searched
-            with st.expander("🔍 Debug: Node USI Information"):
-                st.write("Searched for USI data in node properties:")
-                st.code("usi, USI")
-                
-                if source_node:
-                    st.write(f"**Source Node ({edge.source}) properties:**")
-                    st.json(source_node.properties)
-                else:
-                    st.write(f"❌ Source node ({edge.source}) not found")
-                
-                if target_node:
-                    st.write(f"**Target Node ({edge.target}) properties:**")
-                    st.json(target_node.properties)
-                else:
-                    st.write(f"❌ Target node ({edge.target}) not found")
+        # 
+        # # Extract USI from source node (usi1) and target node (usi2)
+        # usi1 = None  # Source node USI
+        # usi2 = None  # Target node USI
+        # 
+        # if source_node:
+        #     # Look for USI in source node properties
+        #     usi1 = source_node.properties.get('usi') or source_node.properties.get('USI')
+        # 
+        # if target_node:
+        #     # Look for USI in target node properties  
+        #     usi2 = target_node.properties.get('usi') or target_node.properties.get('USI')
+        # 
+        # if usi1 and usi2:
+        #     st.info(f"Generating spectrum alignment between {edge.source} and {edge.target}")
+        #     
+        #     if ModiFinderUtils.is_available():
+        #         with st.spinner("Generating spectrum alignment visualization..."):
+        #             img_base64 = ModiFinderUtils.generate_alignment_image(usi1, usi2)
+        #             
+        #         if img_base64:
+        #             ModiFinderUtils.display_image_from_base64(
+        #                 img_base64, 
+        #                 f"Spectrum Alignment: {edge.source} ↔ {edge.target}"
+        #             )
+        #             
+        #             # Display USI information
+        #             with st.expander("📊 USI Details"):
+        #                 st.markdown("**USI 1 (Source):**")
+        #                 st.code(usi1, language=None)
+        #                 st.markdown("**USI 2 (Target):**")
+        #                 st.code(usi2, language=None)
+        #         else:
+        #             ModiFinderUtils.render_error_placeholder("Could not generate spectrum alignment")
+        #     else:
+        #         ModiFinderUtils.render_error_placeholder("ModiFinder package not available")
+        # else:
+        #     st.info("No USI information found in node data for spectrum alignment")
+        #     
+        #     # Show what fields were searched
+        #     with st.expander("Debug: Node USI Information"):
+        #         st.write("Searched for USI data in node properties:")
+        #         st.code("usi, USI")
+        #         
+        #         if source_node:
+        #             st.write(f"**Source Node ({edge.source}) properties:**")
+        #             st.json(source_node.properties)
+        #         else:
+        #             st.write(f"Source node ({edge.source}) not found")
+        #         
+        #         if target_node:
+        #             st.write(f"**Target Node ({edge.target}) properties:**")
+        #             st.json(target_node.properties)
+        #         else:
+        #             st.write(f"Target node ({edge.target}) not found")
         
         # Display edge properties - MOVED BELOW VISUALIZATION
         if edge.properties:
+            st.markdown('<div class="content-section">', unsafe_allow_html=True)
             st.markdown("### Edge Properties")
             
             # Check for mass decomposition results first
             if 'formula_candidates' in edge.properties:
-                st.markdown("#### 🧪 Possible Molecular Formulas")
+                st.markdown("#### Possible Molecular Formulas")
                 
                 # Display delta_mz value if present
                 delta_mz = edge.properties.get('delta_mz')
                 if delta_mz:
-                    st.markdown(f"**Delta m/z:** {float(delta_mz):.4f} Da")
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>Delta m/z:</strong> {float(delta_mz):.4f} Da
+                    </div>
+                    """, unsafe_allow_html=True)
                     
                 # Display primary formula
                 primary_formula = edge.properties.get('primary_formula')
                 if primary_formula:
                     mass_error = edge.properties.get('formula_mass_error', 0)
                     mass_error_ppm = edge.properties.get('formula_mass_error_ppm', 0)
-                    st.success(f"**Best Match:** {primary_formula} (Error: {mass_error:.4f} Da, {mass_error_ppm:.1f} ppm)")
+                    st.markdown(f"""
+                    <div class="property-item" style="border-left: 4px solid #28a745;">
+                        <strong>Best Match:</strong> <code>{primary_formula}</code><br>
+                        <small>Error: {mass_error:.4f} Da ({mass_error_ppm:.1f} ppm)</small>
+                    </div>
+                    """, unsafe_allow_html=True)
                 
                 # Display all candidates
                 candidates = edge.properties.get('formula_candidates', [])
                 if len(candidates) > 1:
-                    with st.expander(f"View all {len(candidates)} formula candidates"):
+                    with st.expander(f"View all {len(candidates)} formula candidates", expanded=False):
+                        st.markdown("""
+                        <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin: 0.5rem 0;">
+                        """, unsafe_allow_html=True)
+                        
                         for i, candidate in enumerate(candidates, 1):
                             formula = candidate.get('formula', 'Unknown')
                             error_da = candidate.get('mass_error', 0)
                             error_ppm = candidate.get('mass_error_ppm', 0)
                             
-                            col1, col2, col3 = st.columns([2, 1, 1])
-                            with col1:
-                                st.markdown(f"**{i}. {formula}**")
-                            with col2:
-                                st.caption(f"{error_da:.4f} Da")
-                            with col3:
-                                st.caption(f"{error_ppm:.1f} ppm")
-                
-                st.markdown("---")
+                            # Color code based on ranking
+                            border_color = "#28a745" if i == 1 else "#ffc107" if i <= 3 else "#6c757d"
+                            
+                            st.markdown(f"""
+                            <div style="background: white; border: 1px solid #dee2e6; border-left: 4px solid {border_color}; border-radius: 4px; padding: 0.75rem; margin: 0.5rem 0; display: flex; justify-content: space-between; align-items: center;">
+                                <div><strong>{i}. {formula}</strong></div>
+                                <div style="text-align: right; font-size: 0.9rem; color: #6c757d;">
+                                    <div>{error_da:.4f} Da</div>
+                                    <div>{error_ppm:.1f} ppm</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        
+                        st.markdown("</div>", unsafe_allow_html=True)
             
             # Display other properties
+            st.markdown("#### Other Properties")
+            other_props_found = False
             for key, value in edge.properties.items():
                 # Skip mass decomposition fields as they're displayed separately
                 if key in ['formula_candidates', 'primary_formula', 'formula_mass_error', 'formula_mass_error_ppm']:
                     continue
                     
                 if value is not None and str(value).strip():
+                    other_props_found = True
                     formatted_key = key.replace('_', ' ').title()
-                    # Check if this might be a URL or special data
                     value_str = str(value)
                     
                     if any(pattern in value_str.lower() for pattern in ['http', 'gnps', 'usi']):
-                        # Other URL data - use code block for better formatting
-                        st.markdown(f"**{formatted_key}:**")
-                        st.code(value_str, language=None)
+                        # URL or special identifier - use chemical-data styling
+                        st.markdown(f"""
+                        <div class="property-item">
+                            <strong>{formatted_key}:</strong>
+                            <div class="chemical-data">{value_str}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     else:
                         # Regular display
-                        st.markdown(f"**{formatted_key}:** {value}")
+                        st.markdown(f"""
+                        <div class="property-item">
+                            <strong>{formatted_key}:</strong> {value}
+                        </div>
+                        """, unsafe_allow_html=True)
+            
+            if not other_props_found:
+                st.info("No additional properties found for this edge")
+            
+            st.markdown('</div>', unsafe_allow_html=True)  # Close content-section
         
         # Display connected nodes information (nodes already retrieved above)
+        st.markdown('<div class="content-section">', unsafe_allow_html=True)
         st.markdown("### Connected Nodes")
         
         if source_node and target_node:
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown(f"**Source Node: {source_node.label}**")
-                st.markdown(f"ID: {source_node.id}")
-                st.markdown(f"Type: {source_node.node_type.value}")
+                st.markdown(f"""
+                <div class="detail-panel">
+                    <h4>Source: {source_node.label}</h4>
+                    <div class="property-item">
+                        <strong>ID:</strong> <code>{source_node.id}</code>
+                    </div>
+                    <div class="property-item">
+                        <strong>Type:</strong> <span style="background: #e3f2fd; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.9rem;">{source_node.node_type.value}</span>
+                    </div>
+                """, unsafe_allow_html=True)
                 
                 # Show key properties
                 if 'library_compound_name' in source_node.properties:
-                    st.markdown(f"Compound: {source_node.properties['library_compound_name']}")
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>Compound:</strong> {source_node.properties['library_compound_name']}
+                    </div>
+                    """, unsafe_allow_html=True)
                 if 'library_SMILES' in source_node.properties:
-                    st.markdown("SMILES:")
-                    st.code(str(source_node.properties['library_SMILES']), language=None)
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>SMILES:</strong>
+                        <div class="chemical-data">{str(source_node.properties['library_SMILES'])}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
             
             with col2:
-                st.markdown(f"**Target Node: {target_node.label}**")
-                st.markdown(f"ID: {target_node.id}")
-                st.markdown(f"Type: {target_node.node_type.value}")
+                st.markdown(f"""
+                <div class="detail-panel">
+                    <h4>Target: {target_node.label}</h4>
+                    <div class="property-item">
+                        <strong>ID:</strong> <code>{target_node.id}</code>
+                    </div>
+                    <div class="property-item">
+                        <strong>Type:</strong> <span style="background: #e3f2fd; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.9rem;">{target_node.node_type.value}</span>
+                    </div>
+                """, unsafe_allow_html=True)
                 
                 # Show key properties
                 if 'library_compound_name' in target_node.properties:
-                    st.markdown(f"Compound: {target_node.properties['library_compound_name']}")
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>Compound:</strong> {target_node.properties['library_compound_name']}
+                    </div>
+                    """, unsafe_allow_html=True)
                 if 'library_SMILES' in target_node.properties:
-                    st.markdown("SMILES:")
-                    st.code(str(target_node.properties['library_SMILES']), language=None)
+                    st.markdown(f"""
+                    <div class="property-item">
+                        <strong>SMILES:</strong>
+                        <div class="chemical-data">{str(target_node.properties['library_SMILES'])}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.warning("Could not find complete node information for this edge")
         
+        st.markdown('</div>', unsafe_allow_html=True)  # Close content-section
+        
+        # Action button with improved styling
         st.markdown("---")
-        if st.button("Close Details", key=f"close_edge_details_{edge.source}_{edge.target}"):
+        if st.button("Close Details", key=f"close_edge_details_{edge.source}_{edge.target}", use_container_width=True):
             if 'selected_edge_id' in st.session_state:
                 del st.session_state.selected_edge_id
             st.rerun()
@@ -1034,7 +1269,7 @@ class UIComponents:
         Args:
             modifinder_url: The URL from the edge's modifinder_link property
         """
-        st.markdown("### 🔬 ModiFinder Spectrum Alignment")
+        st.markdown("### ModiFinder Spectrum Alignment")
         
         # Add some context
         st.caption("Interactive spectrum alignment visualization from ModiFinder")
@@ -1072,7 +1307,7 @@ class UIComponents:
         components.html(iframe_html, height=820)
         
         # Add a link to open in new tab
-        st.markdown(f"[🔗 Open in new tab]({modifinder_url})")
+        st.markdown(f"[Open in new tab]({modifinder_url})")
         
         # Add button to hide the visualization
         if st.button("Hide Visualization", key="hide_modifinder"):
